@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- App background -->
+  <rect width="512" height="512" rx="96" fill="#0F766E"/>
+  <!-- Credit card body -->
+  <rect x="64" y="152" width="384" height="240" rx="28" fill="white"/>
+  <!-- Magnetic stripe -->
+  <rect x="64" y="212" width="384" height="68" fill="#115E59"/>
+  <!-- EMV chip -->
+  <rect x="104" y="170" width="72" height="56" rx="10" fill="#F59E0B"/>
+  <rect x="118" y="184" width="44" height="28" rx="5" fill="#E08900" opacity="0.6"/>
+  <!-- Card number dots -->
+  <circle cx="130" cy="316" r="7" fill="#CBD5E1"/>
+  <circle cx="152" cy="316" r="7" fill="#CBD5E1"/>
+  <circle cx="174" cy="316" r="7" fill="#CBD5E1"/>
+  <circle cx="196" cy="316" r="7" fill="#CBD5E1"/>
+  <circle cx="226" cy="316" r="7" fill="#CBD5E1"/>
+  <circle cx="248" cy="316" r="7" fill="#CBD5E1"/>
+  <circle cx="270" cy="316" r="7" fill="#CBD5E1"/>
+  <circle cx="292" cy="316" r="7" fill="#CBD5E1"/>
+  <!-- Network logo placeholder (two overlapping circles) -->
+  <circle cx="358" cy="316" r="26" fill="#E2E8F0" opacity="0.7"/>
+  <circle cx="388" cy="316" r="26" fill="#CBD5E1" opacity="0.8"/>
+</svg>

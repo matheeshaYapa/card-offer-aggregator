@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /my-cards
+
+Sitemap: https://cardpromo.lk/sitemap.xml

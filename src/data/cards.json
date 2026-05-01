@@ -1,0 +1,82 @@
+[
+  {
+    "id": "commercial-visa-credit",
+    "bankId": "commercial-bank",
+    "name": "Visa Credit Card",
+    "type": "credit",
+    "network": "visa",
+    "tier": "standard"
+  },
+  {
+    "id": "commercial-mastercard-credit",
+    "bankId": "commercial-bank",
+    "name": "Mastercard Credit Card",
+    "type": "credit",
+    "network": "mastercard",
+    "tier": "standard"
+  },
+  {
+    "id": "commercial-visa-debit",
+    "bankId": "commercial-bank",
+    "name": "Visa Debit Card",
+    "type": "debit",
+    "network": "visa",
+    "tier": "standard"
+  },
+  {
+    "id": "sampath-mastercard-credit",
+    "bankId": "sampath-bank",
+    "name": "Mastercard Credit Card",
+    "type": "credit",
+    "network": "mastercard",
+    "tier": "standard"
+  },
+  {
+    "id": "sampath-visa-debit",
+    "bankId": "sampath-bank",
+    "name": "Visa Debit Card",
+    "type": "debit",
+    "network": "visa",
+    "tier": "standard"
+  },
+  {
+    "id": "hnb-visa-credit",
+    "bankId": "hnb",
+    "name": "Visa Credit Card",
+    "type": "credit",
+    "network": "visa",
+    "tier": "standard"
+  },
+  {
+    "id": "hnb-visa-debit",
+    "bankId": "hnb",
+    "name": "Visa Debit Card",
+    "type": "debit",
+    "network": "visa",
+    "tier": "standard"
+  },
+  {
+    "id": "boc-mastercard-credit",
+    "bankId": "boc",
+    "name": "Mastercard Credit Card",
+    "type": "credit",
+    "network": "mastercard",
+    "tier": "standard"
+  },
+  {
+    "id": "boc-visa-debit",
+    "bankId": "boc",
+    "name": "Visa Debit Card",
+    "type": "debit",
+    "network": "visa",
+    "tier": "standard"
+  },
+  {
+    "id": "peoples-visa-credit",
+    "bankId": "peoples-bank",
+    "name": "Visa Credit Card",
+    "type": "credit",
+    "network": "visa",
+    "tier": "standard"
+  }
+]

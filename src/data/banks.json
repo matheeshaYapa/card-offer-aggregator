@@ -1,0 +1,32 @@
+[
+  {
+    "id": "commercial-bank",
+    "name": "Commercial Bank of Ceylon",
+    "shortName": "ComBank",
+    "countryCode": "LK"
+  },
+  {
+    "id": "sampath-bank",
+    "name": "Sampath Bank",
+    "shortName": "Sampath",
+    "countryCode": "LK"
+  },
+  {
+    "id": "hnb",
+    "name": "Hatton National Bank",
+    "shortName": "HNB",
+    "countryCode": "LK"
+  },
+  {
+    "id": "boc",
+    "name": "Bank of Ceylon",
+    "shortName": "BOC",
+    "countryCode": "LK"
+  },
+  {
+    "id": "peoples-bank",
+    "name": "People's Bank",
+    "shortName": "People's",
+    "countryCode": "LK"
+  }
+]

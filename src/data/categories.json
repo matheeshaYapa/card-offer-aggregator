@@ -1,0 +1,27 @@
+[
+  {
+    "id": "dining",
+    "name": "Dining",
+    "icon": "UtensilsCrossed"
+  },
+  {
+    "id": "shopping",
+    "name": "Shopping",
+    "icon": "ShoppingBag"
+  },
+  {
+    "id": "travel",
+    "name": "Travel",
+    "icon": "Plane"
+  },
+  {
+    "id": "supermarket",
+    "name": "Supermarket",
+    "icon": "ShoppingCart"
+  },
+  {
+    "id": "electronics",
+    "name": "Electronics",
+    "icon": "Laptop"
+  }
+]
