@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --ssr src/entry-server.tsx --outDir dist/.ssr && tsx scripts/prerender.ts && tsx scripts/generate-sitemap.ts",
+    "build": "vite build && vite build --ssr src/entry-server.tsx --outDir dist/.ssr && tsx scripts/prerender.ts && tsx scripts/generate-sitemap.ts && tsx scripts/generate-robots.ts",
     "_build_note": "Optional one-time asset generation (not in CI build): npm run generate:og-cover && npm run generate:icons",
     "build:client": "vite build",
     "preview": "vite preview --port 4173",

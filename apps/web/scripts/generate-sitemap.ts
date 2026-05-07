@@ -23,7 +23,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const toAbs = (p: string) => path.resolve(root, p)
 
-const SITE_URL = process.env.VITE_APP_BASE_URL ?? 'https://cardpromo.lk'
+// Strip trailing slash so URLs never double up (e.g. https://domain.com/ + /offers = //offers)
+const SITE_URL = (process.env.VITE_APP_BASE_URL ?? 'https://cardpromo.lk').replace(/\/$/, '')
 
 // Seed fallbacks (mirrors 003_seed_base_data.sql)
 let bankSlugs = ['commercial-bank', 'sampath-bank', 'hnb', 'boc', 'peoples-bank']

@@ -169,7 +169,7 @@ SCRAPER_MAP = {
 |---|---|---|
 | HNB | JSON API | Calls `venus.hnb.lk/api/get_all_web_card_promos?page={n}&cardType=All`. ~75 pages × 10 = ~743 offers. No HTML parsing needed. |
 | Commercial Bank | HTML (server-rendered) | Selects `<a href="/rewards-promotion/[category]/[slug]">` links. Extracts h3 title, discount text, validity from each link. |
-| Sampath Bank | `cloudscraper` + Playwright | Cloudflare-protected. `cloudscraper` resolves JS challenges. Falls back to headless Chromium if page is a JS SPA. Iterates `?firstTab=[slug]` for all category tabs. |
+| Sampath Bank | Playwright + JSON API | Angular SPA, Cloudflare domain-wide blocks plain requests. API discovered (2026-05-07): `GET /api/card-promotions?category={cat}&page_number={n}&size={size}`. Playwright loads the main page first (solves CF challenge), then calls the API via `page.evaluate()` which runs inside the browser context and inherits the CF clearance cookies. |
 
 ### Candidate flow
 
@@ -240,12 +240,28 @@ Or use `python3` if that's what resolves on your system.
 `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` is not set in GitHub repo secrets.
 Go to: **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**
 
-### Sampath returns 503
+### Sampath returns 0 candidates
 
-Cloudflare's bot protection is blocking the request. `cloudscraper` normally handles this. If it still fails:
-1. Ensure `cloudscraper` is installed: `pip show cloudscraper`
-2. Ensure Playwright Chromium is installed: `python -m playwright install chromium`
-3. Check whether Sampath has changed their Cloudflare settings (may need a scraper update)
+Sampath uses Cloudflare domain-wide — plain `requests` and `cloudscraper` are both blocked. The scraper now uses Playwright with the JSON API (`/api/card-promotions`).
+
+**Check:**
+1. Playwright Chromium is installed: `python -m playwright install --with-deps chromium`
+2. The scraper log shows "main page loaded OK — CF challenge passed" → then API calls work
+3. If the log shows "failed to load main page", Cloudflare may have tightened their bot rules — see next section
+
+**If Playwright is still blocked by Cloudflare:**
+The headless browser may be detected. Try installing `playwright-stealth`:
+```bash
+pip install playwright-stealth
+```
+Then add to `sampath_scraper.py` inside `run()` after `page = context.new_page()`:
+```python
+try:
+    from playwright_stealth import stealth_sync
+    stealth_sync(page)
+except ImportError:
+    pass
+```
 
 ### `playwright._impl._api_types.Error: Executable doesn't exist`
 
