@@ -43,8 +43,44 @@ export default defineConfig(({ isSsrBuild }) => ({
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,json}'],
-          runtimeCaching: [],
+          // Precache the full app shell + all SSG-prerendered HTML pages
+          globPatterns: ['**/*.{js,css,html,svg,png,jpg,webp,woff2}'],
+          // Serve offline.html for any navigation request that isn't in the cache
+          navigateFallback: '/offline.html',
+          // Don't apply the fallback to admin routes (they're not precached)
+          navigateFallbackDenylist: [/^\/admin/],
+          runtimeCaching: [
+            // Cache Supabase API responses — serve stale while revalidating
+            {
+              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'supabase-api',
+                expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 }, // 24 h
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            // Cache Google Fonts and external fonts
+            {
+              urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts',
+                expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            // Cache remote images (bank logos, merchant logos)
+            {
+              urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'images',
+                expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 }, // 30 d
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+          ],
         },
         devOptions: {
           enabled: true,

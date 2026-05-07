@@ -35,3 +35,4 @@ Thumbs.db
 # ── Claude Code local session data ────────────────────────────────────────────
 # Contains machine-specific IDE settings; not useful across machines.
 .claude/
+CLAUDE.md

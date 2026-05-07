@@ -2,10 +2,26 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { AlertCircle, ArrowLeft, Building2 } from 'lucide-react'
 import MetaTags from '@/components/seo/MetaTags'
+import { BreadcrumbStructuredData } from '@/components/seo/StructuredData'
 import OfferGrid from '@/components/offers/OfferGrid'
 import { getBankBySlug } from '@/lib/supabase/queries/banks'
 import { getOffersByBankSlug } from '@/lib/supabase/queries/offers'
 import type { Bank, Offer } from '@/types'
+import { canonicalUrl, SITE_URL } from '@/utils/seo'
+
+/** Short SEO copy per bank. Keep natural — no keyword stuffing. */
+const BANK_SEO_COPY: Record<string, string> = {
+  'commercial-bank':
+    'Commercial Bank of Ceylon offers a wide range of credit and debit card promotions across dining, travel, supermarkets, and online shopping in Sri Lanka. Explore all active ComBank card offers below.',
+  hnb:
+    'Hatton National Bank (HNB) runs regular credit card promotions for dining, lifestyle, jewellery, and supermarket purchases in Sri Lanka. View current HNB card offers and save on your next purchase.',
+  'sampath-bank':
+    'Sampath Bank credit and debit card promotions cover hotels, restaurants, supermarkets, and healthcare in Sri Lanka. Find the latest Sampath card offers and discounts here.',
+  boc:
+    'Bank of Ceylon (BOC) card promotions include cashback, installment plans, and discounts at fuel stations, supermarkets, and retailers across Sri Lanka.',
+  'peoples-bank':
+    "People's Bank credit and debit card offers provide savings at selected merchants, supermarkets, and online platforms in Sri Lanka.",
+}
 
 export default function BankPage() {
   const { bankSlug } = useParams<{ bankSlug: string }>()
@@ -74,12 +90,23 @@ export default function BankPage() {
   }
 
   const bankName = bank?.name ?? 'Bank'
+  const pageCanonical = canonicalUrl(`/bank/${bankSlug}`)
+  const seoCopy =
+    (bankSlug && BANK_SEO_COPY[bankSlug]) ??
+    `Browse all active ${bankName} credit and debit card promotions in Sri Lanka. Find dining, shopping, travel and supermarket offers.`
 
   return (
     <>
       <MetaTags
-        title={`${bankName} Credit Card Promotions`}
-        description={`Browse all active ${bankName} credit and debit card promotions in Sri Lanka. Find dining, shopping, travel and supermarket offers.`}
+        title={`${bankName} Credit Card Promotions Sri Lanka`}
+        description={seoCopy}
+        canonical={pageCanonical}
+      />
+      <BreadcrumbStructuredData
+        items={[
+          { name: 'Home', url: SITE_URL },
+          { name: `${bankName} Promotions`, url: pageCanonical },
+        ]}
       />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -91,7 +118,7 @@ export default function BankPage() {
           All promotions
         </Link>
 
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <Building2 size={20} className="text-primary" />
           </div>
@@ -104,6 +131,11 @@ export default function BankPage() {
             )}
           </div>
         </div>
+
+        {/* SEO description paragraph */}
+        {!loading && bank && (
+          <p className="text-sm text-muted leading-relaxed mb-5 max-w-2xl">{seoCopy}</p>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-5">

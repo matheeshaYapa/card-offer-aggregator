@@ -8,6 +8,7 @@ import OfferGrid from '@/components/offers/OfferGrid'
 import { useOfferFilters } from '@/hooks/useOfferFilters'
 import { usePublicBrowseData } from '@/hooks/usePublicBrowseData'
 import { useSelectedCards } from '@/hooks/useSelectedCards'
+import { canonicalUrl } from '@/utils/seo'
 
 interface HomePageProps {
   routeMode?: 'home' | 'offers'
@@ -27,6 +28,7 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
   }, [searchParams, setFilter])
 
   const isOffersRoute = routeMode === 'offers'
+  const pageCanonical = canonicalUrl(isOffersRoute ? '/offers' : '/')
 
   return (
     <>
@@ -36,7 +38,8 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
             ? 'All Card Offers Sri Lanka'
             : 'Credit & Debit Card Promotions Sri Lanka'
         }
-        description="Discover the best credit and debit card promotions in Sri Lanka. Compare offers from Commercial Bank, HNB, Sampath, BOC, People's Bank and more."
+        description="Discover the best credit and debit card promotions in Sri Lanka. Compare offers from Commercial Bank, HNB, Sampath, BOC, People's Bank and more — dining, shopping, travel, supermarket and online deals."
+        canonical={pageCanonical}
       />
       <WebsiteStructuredData />
 
@@ -115,6 +118,58 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
         />
 
         <OfferGrid offers={filteredOffers} loading={loading} />
+
+        {/* SEO content section — visible text for crawlers, useful for new visitors */}
+        {!isOffersRoute && !loading && (
+          <section className="mt-12 pt-8 border-t border-border" aria-label="About CardPromo LK">
+            <div className="max-w-3xl">
+              <h2 className="text-base font-semibold text-content mb-3">
+                Find the best card offers in Sri Lanka
+              </h2>
+              <p className="text-sm text-muted leading-relaxed mb-3">
+                CardPromo LK brings together credit card offers and debit card
+                promotions from Sri Lanka's leading banks — including{' '}
+                <Link to="/bank/commercial-bank" className="text-primary hover:underline">
+                  Commercial Bank
+                </Link>
+                ,{' '}
+                <Link to="/bank/hnb" className="text-primary hover:underline">
+                  HNB
+                </Link>
+                ,{' '}
+                <Link to="/bank/sampath-bank" className="text-primary hover:underline">
+                  Sampath Bank
+                </Link>
+                ,{' '}
+                <Link to="/bank/boc" className="text-primary hover:underline">
+                  BOC
+                </Link>{' '}
+                and more — in one easy-to-search place.
+              </p>
+              <p className="text-sm text-muted leading-relaxed mb-4">
+                Browse dining offers, supermarket cashback, travel discounts, online
+                shopping deals and lifestyle promotions, all updated regularly. Add
+                your cards once and we'll highlight the offers that apply to you.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'Dining offers', to: '/category/dining' },
+                  { label: 'Supermarket deals', to: '/category/supermarket' },
+                  { label: 'Travel promotions', to: '/category/travel' },
+                  { label: 'Shopping discounts', to: '/category/shopping' },
+                ].map(({ label, to }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    className="text-xs text-primary border border-primary/30 rounded-full px-3 py-1 hover:bg-primary/5 transition-colors"
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </>
   )

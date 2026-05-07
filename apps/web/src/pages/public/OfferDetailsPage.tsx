@@ -11,12 +11,13 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import MetaTags from '@/components/seo/MetaTags'
-import { OfferStructuredData } from '@/components/seo/StructuredData'
+import { OfferStructuredData, BreadcrumbStructuredData } from '@/components/seo/StructuredData'
 import Badge from '@/components/common/Badge'
 import { formatDate, getExpiryLabel } from '@/utils/dateUtils'
 import { formatNetworkName, formatCardTypeName } from '@/utils/normalization'
 import { getOfferBySlug } from '@/lib/supabase/queries/offers'
 import type { Offer } from '@/types'
+import { canonicalUrl, SITE_URL } from '@/utils/seo'
 
 export default function OfferDetailsPage() {
   const { offerSlug } = useParams<{ offerSlug: string }>()
@@ -78,14 +79,28 @@ export default function OfferDetailsPage() {
   const terms = offer!.terms_text ? offer!.terms_text.split('\n').filter(Boolean) : []
   const expiryLabel = getExpiryLabel(offer!)
 
+  const primaryBankName = banks[0]?.short_name ?? banks[0]?.name ?? 'Sri Lanka'
+  const pageCanonical = canonicalUrl(`/offer/${offer!.slug}`)
+  const metaDescription =
+    offer!.description ??
+    `${offer!.title}. ${offer!.discount_text ? `Discount: ${offer!.discount_text}. ` : ''}Valid for ${primaryBankName} cardholders in Sri Lanka.`
+
   return (
     <>
       <MetaTags
-        title={`${offer!.title} – ${banks[0]?.short_name ?? banks[0]?.name ?? 'Sri Lanka'}`}
-        description={offer!.description ?? offer!.title}
+        title={`${offer!.title} – ${primaryBankName}`}
+        description={metaDescription}
+        canonical={pageCanonical}
         ogType="article"
       />
       <OfferStructuredData offer={offer!} />
+      <BreadcrumbStructuredData
+        items={[
+          { name: 'Home', url: SITE_URL },
+          { name: 'Offers', url: `${SITE_URL}/offers` },
+          { name: offer!.title, url: pageCanonical },
+        ]}
+      />
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         <button

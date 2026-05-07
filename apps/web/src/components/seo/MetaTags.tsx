@@ -1,16 +1,26 @@
 import { Helmet } from 'react-helmet-async'
+import { SITE_NAME, SITE_URL, ogImageUrl } from '@/utils/seo'
 
 interface MetaTagsProps {
   title: string
   description: string
+  /** Absolute canonical URL for this page. Always pass this — it's used for og:url too. */
   canonical?: string
+  /** Override the Open Graph share image (absolute URL to a PNG/JPG). */
   ogImage?: string
+  /** Open Graph type. Defaults to 'website'; use 'article' for offer detail pages. */
   ogType?: string
+  /** Set true to prevent search-engine indexing (error states, 404s, /my-cards). */
   noIndex?: boolean
 }
 
-const SITE_NAME = 'CardPromo LK'
-const DEFAULT_OG_IMAGE = '/icons/icon.svg'
+/**
+ * Default OG share image.
+ * Uses icon-192.png (valid PNG, ships with the app) as the safe fallback.
+ * For production, create a proper 1200×630 PNG at apps/web/public/og-cover.png
+ * and change this line to: ogImageUrl('og-cover.png')
+ */
+const DEFAULT_OG_IMAGE = ogImageUrl('icons/icon-192.png')
 
 export default function MetaTags({
   title,
@@ -24,21 +34,28 @@ export default function MetaTags({
     ? title
     : `${title} | ${SITE_NAME}`
 
+  // Resolve canonical — fall back to site root so there's always an og:url
+  const resolvedCanonical = canonical ?? SITE_URL
+
   return (
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
-      {canonical && <link rel="canonical" href={canonical} />}
-      {noIndex && <meta name="robots" content="noindex" />}
+      <link rel="canonical" href={resolvedCanonical} />
+      {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
       {/* Open Graph */}
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:type" content={ogType} />
+      <meta property="og:url" content={resolvedCanonical} />
       <meta property="og:image" content={ogImage} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
       <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:locale" content="en_LK" />
 
-      {/* Twitter */}
+      {/* Twitter / X */}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />

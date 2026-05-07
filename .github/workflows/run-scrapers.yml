@@ -45,11 +45,15 @@ jobs:
           pip install --upgrade pip --quiet
           pip install -r scrapers/requirements.txt
           echo "=== Dependencies installed ==="
-        # Note: Playwright is in requirements.txt as a future option for
-        # JavaScript-heavy pages. The current scrapers use requests only,
-        # so we install the Python package but NOT the Chromium browser binary.
-        # When a scraper needs JS rendering, add this step:
-        #   python -m playwright install --with-deps chromium
+
+      # ── 3b. Playwright Chromium ───────────────────────────────────────────
+      # Required by SampathScraper as a JS-rendering fallback when cloudscraper
+      # cannot bypass Cloudflare protection.
+      # The binary (~500 MB) is cached after the first run.
+      # To disable (saves ~2 min): comment out this step — the scraper will
+      # log a clear warning and skip Sampath rather than crashing.
+      - name: Install Playwright Chromium browser
+        run: python -m playwright install --with-deps chromium
 
       # ── 4. Secret validation ──────────────────────────────────────────────
       - name: Validate required secrets
