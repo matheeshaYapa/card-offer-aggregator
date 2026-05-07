@@ -1,0 +1,28 @@
+# CardPromo LK — Fallback scrape source configuration
+#
+# This file is used when no active sources are found in the Supabase
+# `scrape_sources` table (e.g. during local dev without DB connectivity).
+#
+# At runtime the scraper prefers DB-sourced configuration over this file.
+
+sources:
+  - key: hnb-card-offers
+    bank_slug: hnb
+    name: HNB Card Offers
+    source_url: https://www.hnb.lk/card-promotion
+    source_type: html
+    scraper: hnb
+
+  - key: commercial-bank-promotions
+    bank_slug: commercial-bank
+    name: Commercial Bank Promotions
+    source_url: https://www.combank.lk/rewards-promotions
+    source_type: html
+    scraper: commercial-bank
+
+  - key: sampath-promotions
+    bank_slug: sampath-bank
+    name: Sampath Bank Promotions
+    source_url: https://www.sampath.lk/sampath-cards/credit-card-offer
+    source_type: html
+    scraper: sampath-bank

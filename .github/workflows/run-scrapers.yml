@@ -1,0 +1,97 @@
+name: Run Promotion Scrapers
+
+# ── Triggers ────────────────────────────────────────────────────────────────
+on:
+  schedule:
+    # 18:30 UTC daily = midnight Sri Lanka time (UTC+5:30)
+    # Adjust the cron if you want a different time.
+    # To temporarily disable the schedule without deleting this file,
+    # comment out the `schedule:` block below.
+    - cron: "30 18 * * *"
+
+  # Allow admins to run the scraper on-demand from the Actions tab
+  workflow_dispatch:
+
+# ── Prevent concurrent runs ──────────────────────────────────────────────────
+concurrency:
+  group: scrapers
+  cancel-in-progress: false   # let an in-progress run finish before cancelling
+
+# ── Job ──────────────────────────────────────────────────────────────────────
+jobs:
+  scrape:
+    name: Scrape bank promotions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30      # kill the job if it hangs
+
+    steps:
+      # ── 1. Source code ────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python runtime ─────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          # Cache pip downloads keyed to requirements.txt so re-installs are fast
+          cache: pip
+          cache-dependency-path: scrapers/requirements.txt
+
+      # ── 3. Dependencies ───────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          echo "=== Installing scraper dependencies ==="
+          pip install --upgrade pip --quiet
+          pip install -r scrapers/requirements.txt
+          echo "=== Dependencies installed ==="
+        # Note: Playwright is in requirements.txt as a future option for
+        # JavaScript-heavy pages. The current scrapers use requests only,
+        # so we install the Python package but NOT the Chromium browser binary.
+        # When a scraper needs JS rendering, add this step:
+        #   python -m playwright install --with-deps chromium
+
+      # ── 4. Secret validation ──────────────────────────────────────────────
+      - name: Validate required secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          missing=()
+          [ -z "$SUPABASE_URL" ]               && missing+=("SUPABASE_URL")
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]  && missing+=("SUPABASE_SERVICE_ROLE_KEY")
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "ERROR: Missing required GitHub secrets: ${missing[*]}"
+            echo ""
+            echo "Fix: GitHub repo → Settings → Secrets and variables"
+            echo "     → Actions → New repository secret"
+            exit 1
+          fi
+
+          echo "Secrets validated OK."
+
+      # ── 5. Run scraper ────────────────────────────────────────────────────
+      - name: Run scrapers
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          echo "=== CardPromo LK scraper starting ($(date -u '+%Y-%m-%dT%H:%M:%SZ')) ==="
+          cd scrapers
+          python main.py
+          echo "=== Scraper finished ($(date -u '+%Y-%m-%dT%H:%M:%SZ')) ==="
+
+      # ── 6. Summary ────────────────────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## Scraper run summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Triggered by | \`${{ github.event_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Workflow run | [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Review new candidates: Admin → Review Candidates" >> "$GITHUB_STEP_SUMMARY"

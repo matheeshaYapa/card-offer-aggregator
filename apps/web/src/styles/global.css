@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0F766E;
+  --color-primary-dark: #115E59;
+  --color-accent: #F59E0B;
+  --color-bg-base: #F8FAFC;
+  --color-content: #0F172A;
+  --color-muted: #64748B;
+  --color-border: #E2E8F0;
+  --color-card: #FFFFFF;
+  --color-success: #10B981;
+  --color-danger: #EF4444;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --radius-card: 0.875rem;
+}
+
+html,
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-content);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* Bottom nav clearance on mobile */
+@media (max-width: 768px) {
+  .main-content {
+    padding-bottom: 5rem;
+  }
+}
+
+/* ── Admin panel utility classes ─────────────────────────────────────────── */
+
+.admin-input {
+  @apply w-full bg-slate-50 border border-border rounded-xl px-3 py-2
+    text-sm text-content
+    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+    transition-colors;
+}
+
+.admin-btn-primary {
+  @apply inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary text-white
+    rounded-xl text-sm font-semibold hover:bg-primary-dark
+    disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+}
+
+.admin-btn-ghost {
+  @apply inline-flex items-center gap-1.5 px-3.5 py-2 text-muted
+    hover:text-content hover:bg-slate-100 rounded-xl text-sm font-medium
+    transition-colors;
+}
+
+.admin-icon-btn {
+  @apply w-7 h-7 flex items-center justify-center rounded-lg
+    text-muted hover:text-content hover:bg-slate-100 transition-colors;
+}
+
+.admin-th {
+  @apply px-4 py-2.5 text-left text-xs font-semibold text-muted;
+}
+
+.admin-td {
+  @apply px-4 py-3 text-sm text-content;
+}
+
+.admin-error {
+  @apply flex items-center gap-2 bg-red-50 border border-red-200
+    text-red-700 text-sm rounded-xl px-4 py-3;
+}

@@ -1,9 +1,37 @@
-node_modules
-dist
-dist-ssr
-*.local
+# ── Node / npm ────────────────────────────────────────────────────────────────
+node_modules/
+
+# ── Build and cache outputs ───────────────────────────────────────────────────
+dist/
+dist-ssr/
+dev-dist/
+.vite/
+
+# ── Environment / secrets — NEVER commit real values ─────────────────────────
+# Bare patterns (no leading /) match at any depth in the tree.
+# Explicit paths are belt-and-suspenders for the files that hold real keys.
 .env
 .env.local
 .env.*.local
+apps/web/.env
+apps/web/.env.local
+scrapers/.env
+
+# ── Python ────────────────────────────────────────────────────────────────────
+scrapers/.venv/
+# Catch __pycache__ and .pyc/.pyo at any depth under scrapers/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# ── Editor / IDE ──────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+
+# ── Claude Code local session data ────────────────────────────────────────────
+# Contains machine-specific IDE settings; not useful across machines.
+.claude/

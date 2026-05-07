@@ -1,0 +1,347 @@
+[
+  {
+    "id": "offer-001",
+    "title": "20% Off at Selected Restaurants",
+    "description": "Enjoy 20% savings when you dine at selected partner restaurants islandwide using your ComBank Visa or Mastercard credit card.",
+    "bankIds": ["commercial-bank"],
+    "eligibleCardIds": [
+      "commercial-visa-credit",
+      "commercial-mastercard-credit"
+    ],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["visa", "mastercard"],
+    "merchantName": "Selected Partner Restaurants",
+    "categoryId": "dining",
+    "discountText": "20% off",
+    "validFrom": "2026-04-01",
+    "validTo": "2026-06-30",
+    "terms": [
+      "Valid for dine-in only at participating restaurants.",
+      "Maximum discount of Rs. 2,000 per transaction.",
+      "Cannot be combined with other offers.",
+      "Subject to merchant and bank terms and conditions."
+    ],
+    "sourceUrl": "https://www.combank.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-002",
+    "title": "10% Cashback at Keells Super",
+    "description": "Get 10% cashback on grocery purchases at all Keells Super outlets when you pay with any Sampath Bank card.",
+    "bankIds": ["sampath-bank"],
+    "eligibleCardTypes": ["credit", "debit"],
+    "eligibleNetworks": ["visa", "mastercard"],
+    "merchantName": "Keells Super",
+    "categoryId": "supermarket",
+    "discountText": "10% cashback",
+    "validFrom": "2026-04-01",
+    "validTo": "2026-07-31",
+    "terms": [
+      "Cashback credited within 30 days.",
+      "Maximum cashback of Rs. 500 per transaction.",
+      "Valid for a minimum spend of Rs. 3,000.",
+      "Limited to two transactions per card per month."
+    ],
+    "sourceUrl": "https://www.sampath.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-003",
+    "title": "15% Off at Cinnamon Hotels & Resorts",
+    "description": "Book your stay at any Cinnamon Hotels & Resorts property in Sri Lanka and save 15% when paying with your HNB Visa Credit Card.",
+    "bankIds": ["hnb"],
+    "eligibleCardIds": ["hnb-visa-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["visa"],
+    "merchantName": "Cinnamon Hotels & Resorts",
+    "categoryId": "travel",
+    "discountText": "15% off",
+    "validFrom": "2026-04-01",
+    "validTo": "2026-12-31",
+    "terms": [
+      "Valid for direct bookings only.",
+      "Not valid on public holidays and special events.",
+      "Advance booking of at least 7 days required.",
+      "Subject to availability."
+    ],
+    "sourceUrl": "https://www.hnb.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-004",
+    "title": "5% Cashback on All Fuel Purchases",
+    "description": "Earn 5% cashback on every fuel purchase at CPC and Lanka IOC outlets when you use your BOC Mastercard Credit Card.",
+    "bankIds": ["boc"],
+    "eligibleCardIds": ["boc-mastercard-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["mastercard"],
+    "merchantName": "CPC & Lanka IOC Fuel Stations",
+    "categoryId": "shopping",
+    "discountText": "5% cashback",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-06-30",
+    "terms": [
+      "Cashback applied automatically.",
+      "Maximum cashback of Rs. 250 per fill.",
+      "Valid at all CPC and Lanka IOC outlets."
+    ],
+    "sourceUrl": "https://www.boc.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-005",
+    "title": "12% Off on Abans Electronics",
+    "description": "Get 12% off on selected electronics, home appliances, and gadgets at Abans showrooms with your Sampath Mastercard Credit Card.",
+    "bankIds": ["sampath-bank"],
+    "eligibleCardIds": ["sampath-mastercard-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["mastercard"],
+    "merchantName": "Abans",
+    "categoryId": "electronics",
+    "discountText": "12% off",
+    "validFrom": "2026-03-01",
+    "validTo": "2026-06-30",
+    "terms": [
+      "Valid on selected items only.",
+      "Minimum purchase of Rs. 15,000 required.",
+      "Not valid on already discounted items.",
+      "Valid at all Abans showrooms islandwide."
+    ],
+    "sourceUrl": "https://www.sampath.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-006",
+    "title": "Buy 1 Get 1 Free – Buffet Dining",
+    "description": "Enjoy a Buy 1 Get 1 complimentary buffet offer at participating hotel restaurants with your HNB Visa or Debit Card.",
+    "bankIds": ["hnb"],
+    "eligibleCardTypes": ["credit", "debit"],
+    "eligibleNetworks": ["visa"],
+    "merchantName": "Selected Hotel Restaurants",
+    "categoryId": "dining",
+    "discountText": "Buy 1 Get 1",
+    "validFrom": "2026-05-01",
+    "validTo": "2026-07-31",
+    "terms": [
+      "Valid for buffet dining only.",
+      "Advance reservation required.",
+      "Complimentary cover of equal or lesser value.",
+      "Valid Fridays and Saturdays only."
+    ],
+    "sourceUrl": "https://www.hnb.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-007",
+    "title": "10% Off Online Shopping – All Visa Cards",
+    "description": "Shop online at participating e-commerce stores and enjoy 10% off your purchase when you pay with any Sri Lankan bank Visa credit or debit card.",
+    "bankIds": [
+      "commercial-bank",
+      "sampath-bank",
+      "hnb",
+      "boc",
+      "peoples-bank"
+    ],
+    "eligibleCardTypes": ["credit", "debit"],
+    "eligibleNetworks": ["visa"],
+    "merchantName": "Selected Online Retailers",
+    "categoryId": "shopping",
+    "discountText": "10% off",
+    "validFrom": "2026-04-01",
+    "validTo": "2026-08-31",
+    "terms": [
+      "Valid on online purchases only.",
+      "Minimum order value of Rs. 5,000.",
+      "Discount applied at checkout using promo code.",
+      "One-time use per card."
+    ],
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-008",
+    "title": "0% Installments for 12 Months at Singer",
+    "description": "Purchase any Singer home appliance or electronics and enjoy 0% interest installments for up to 12 months with your BOC Mastercard Credit Card.",
+    "bankIds": ["boc"],
+    "eligibleCardIds": ["boc-mastercard-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["mastercard"],
+    "merchantName": "Singer Sri Lanka",
+    "categoryId": "electronics",
+    "discountText": "0% for 12 months",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "terms": [
+      "Minimum purchase of Rs. 25,000 required.",
+      "Available for 3, 6, and 12-month installment plans.",
+      "Processing fee of 1% applies.",
+      "Valid at all Singer showrooms."
+    ],
+    "sourceUrl": "https://www.boc.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-009",
+    "title": "15% Off at Paradise Road Stores",
+    "description": "Treat yourself to a 15% discount on all purchases at Paradise Road stores with your People's Bank Visa Credit Card.",
+    "bankIds": ["peoples-bank"],
+    "eligibleCardIds": ["peoples-visa-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["visa"],
+    "merchantName": "Paradise Road",
+    "categoryId": "shopping",
+    "discountText": "15% off",
+    "validFrom": "2026-05-01",
+    "validTo": "2026-09-30",
+    "terms": [
+      "Valid at all Paradise Road outlets.",
+      "Not valid on sale items.",
+      "Maximum discount of Rs. 3,000 per transaction."
+    ],
+    "sourceUrl": "https://www.peoplesbank.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-010",
+    "title": "20% Off at Odel – All Visa Credit Cards",
+    "description": "Shop fashion, homeware and more at Odel and receive 20% off your total bill when paying with any Visa credit card from participating banks.",
+    "bankIds": ["commercial-bank", "hnb", "peoples-bank"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["visa"],
+    "merchantName": "Odel",
+    "categoryId": "shopping",
+    "discountText": "20% off",
+    "validFrom": "2026-04-15",
+    "validTo": "2026-06-30",
+    "terms": [
+      "Valid on full-priced items only.",
+      "Not valid during promotional sale periods.",
+      "Minimum spend of Rs. 5,000.",
+      "Valid at all Odel outlets."
+    ],
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-011",
+    "title": "5% Cashback at Cargills Food City",
+    "description": "Enjoy 5% cashback every time you shop at Cargills Food City supermarkets with any Commercial Bank credit or debit card.",
+    "bankIds": ["commercial-bank"],
+    "eligibleCardTypes": ["credit", "debit"],
+    "eligibleNetworks": ["visa", "mastercard"],
+    "merchantName": "Cargills Food City",
+    "categoryId": "supermarket",
+    "discountText": "5% cashback",
+    "validFrom": "2026-03-01",
+    "validTo": "2026-08-31",
+    "terms": [
+      "Cashback credited to card account within 45 days.",
+      "Maximum cashback of Rs. 750 per transaction.",
+      "Valid for a minimum spend of Rs. 2,500.",
+      "Valid at all Cargills Food City outlets."
+    ],
+    "sourceUrl": "https://www.combank.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-012",
+    "title": "Free Room Upgrade at Selected Resorts",
+    "description": "Get a complimentary room upgrade when booking directly with your HNB Visa Credit Card at selected premium resort properties.",
+    "bankIds": ["hnb"],
+    "eligibleCardIds": ["hnb-visa-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["visa"],
+    "merchantName": "Selected Premium Resorts",
+    "categoryId": "travel",
+    "discountText": "Free upgrade",
+    "validFrom": "2026-06-01",
+    "validTo": "2026-12-31",
+    "terms": [
+      "Subject to availability at the time of booking.",
+      "Valid for a minimum stay of 2 nights.",
+      "Advance booking required.",
+      "Valid at participating resorts only."
+    ],
+    "sourceUrl": "https://www.hnb.lk",
+    "countryCode": "LK",
+    "isActive": true
+  },
+  {
+    "id": "offer-013",
+    "title": "15% Off Dining at Rare – Sampath Mastercard",
+    "description": "Dine at Rare Restaurant, Colombo, and enjoy 15% off your food bill with your Sampath Bank Mastercard Credit Card.",
+    "bankIds": ["sampath-bank"],
+    "eligibleCardIds": ["sampath-mastercard-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["mastercard"],
+    "merchantName": "Rare Restaurant",
+    "categoryId": "dining",
+    "discountText": "15% off",
+    "validFrom": "2025-11-01",
+    "validTo": "2026-02-28",
+    "terms": [
+      "Valid for dine-in only.",
+      "Not valid on public holidays.",
+      "Maximum discount of Rs. 1,500."
+    ],
+    "sourceUrl": "https://www.sampath.lk",
+    "countryCode": "LK",
+    "isActive": false
+  },
+  {
+    "id": "offer-014",
+    "title": "10% Off at Softlogic – ComBank Mastercard",
+    "description": "Shop electronics and appliances at Softlogic Life and save 10% with your Commercial Bank Mastercard Credit Card.",
+    "bankIds": ["commercial-bank"],
+    "eligibleCardIds": ["commercial-mastercard-credit"],
+    "eligibleCardTypes": ["credit"],
+    "eligibleNetworks": ["mastercard"],
+    "merchantName": "Softlogic Life",
+    "categoryId": "electronics",
+    "discountText": "10% off",
+    "validFrom": "2025-12-01",
+    "validTo": "2026-03-31",
+    "terms": [
+      "Valid on selected products only.",
+      "Cannot be combined with any other promotion.",
+      "Minimum purchase of Rs. 10,000."
+    ],
+    "sourceUrl": "https://www.combank.lk",
+    "countryCode": "LK",
+    "isActive": false
+  },
+  {
+    "id": "offer-015",
+    "title": "Special Discounts at Laugfs Supermarket",
+    "description": "All bank cardholders enjoy special member discounts at Laugfs Supermarket outlets with any credit or debit card.",
+    "bankIds": [
+      "commercial-bank",
+      "sampath-bank",
+      "hnb",
+      "boc",
+      "peoples-bank"
+    ],
+    "eligibleCardTypes": ["credit", "debit"],
+    "merchantName": "Laugfs Supermarket",
+    "categoryId": "supermarket",
+    "discountText": "Up to 8% off",
+    "validFrom": "2025-09-01",
+    "validTo": "2025-12-31",
+    "terms": [
+      "Discounts vary by product category.",
+      "Valid at all Laugfs Supermarket outlets.",
+      "Cannot be combined with other promotions."
+    ],
+    "countryCode": "LK",
+    "isActive": false
+  }
+]
