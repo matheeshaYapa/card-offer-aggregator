@@ -14,13 +14,8 @@ interface MetaTagsProps {
   noIndex?: boolean
 }
 
-/**
- * Default OG share image.
- * Uses icon-192.png (valid PNG, ships with the app) as the safe fallback.
- * For production, create a proper 1200×630 PNG at apps/web/public/og-cover.png
- * and change this line to: ogImageUrl('og-cover.png')
- */
-const DEFAULT_OG_IMAGE = ogImageUrl('icons/icon-192.png')
+/** Default OG share image — 1200×630 PNG placed in public/. */
+const DEFAULT_OG_IMAGE = ogImageUrl('og-cover.png')
 
 export default function MetaTags({
   title,

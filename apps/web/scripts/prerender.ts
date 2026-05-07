@@ -96,7 +96,14 @@ let count = 0
 for (const url of routes) {
   const { html: appHtml, headTags } = render(url)
 
-  const fullHtml = template
+  // When headTags contains a <title>, remove the generic fallback <title> from
+  // the template so the document never ends up with two title elements.
+  const hasPageTitle = headTags.includes('<title')
+  const templateForRoute = hasPageTitle
+    ? template.replace(/<title>[^<]*<\/title>/, '')
+    : template
+
+  const fullHtml = templateForRoute
     .replace('<!--app-head-->', headTags)
     .replace('<div id="root"><!--app-html--></div>', `<div id="root">${appHtml}</div>`)
 
