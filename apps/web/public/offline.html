@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0F766E" />
+    <title>You're offline – CardPromo LK</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #F8FAFC;
+        color: #0F172A;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        text-align: center;
+      }
+      .icon {
+        width: 64px; height: 64px;
+        background: #CCFBF1;
+        border-radius: 18px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 1.25rem;
+      }
+      .icon svg { width: 32px; height: 32px; color: #0F766E; }
+      h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
+      p  { font-size: 0.875rem; color: #64748B; max-width: 26rem; line-height: 1.6; margin-bottom: 1.5rem; }
+      button {
+        background: #0F766E; color: #fff;
+        border: none; border-radius: 12px;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem; font-weight: 600;
+        cursor: pointer; transition: background 0.15s;
+      }
+      button:hover { background: #115E59; }
+      .brand { margin-top: 2.5rem; font-size: 0.75rem; color: #94A3B8; }
+    </style>
+  </head>
+  <body>
+    <div class="icon">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+      </svg>
+    </div>
+    <h1>You're offline</h1>
+    <p>
+      It looks like you've lost your internet connection. Please check your
+      network and try again. Pages you've visited recently may still be
+      available from the cache.
+    </p>
+    <button onclick="location.reload()">Try again</button>
+    <p class="brand">CardPromo LK</p>
+  </body>
+</html>
