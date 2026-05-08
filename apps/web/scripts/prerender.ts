@@ -91,6 +91,53 @@ const { render } = (await import(ssrBundleUrl)) as {
   render: (url: string) => { html: string; headTags: string }
 }
 
+/**
+ * Strip any duplicate SEO head tags that don't carry data-rh="".
+ *
+ * Why this is needed:
+ *   react-helmet-async + React 19 renderToString can produce head tags in
+ *   multiple places in the HTML (at the top of the render tree AND inline
+ *   where the Helmet component sits). Vite plugin transformations may also
+ *   inject additional copies. This pass keeps ONLY the canonical set that
+ *   carries data-rh="" (our intentionally stamped SSR tags) and removes
+ *   everything else, regardless of where in the document it appears.
+ *
+ * Tags kept without data-rh (structural/asset tags):
+ *   charset, viewport, theme-color, favicon, apple-touch-icon,
+ *   manifest, modulepreload, stylesheet, preload, script (vite/pwa)
+ */
+function removeHeadDuplicates(html: string): string {
+  const headEnd = html.indexOf('</head>')
+  if (headEnd === -1) return html
+
+  let head = html.slice(0, headEnd)
+  const rest = html.slice(headEnd) // </head>…<body>…
+
+  // Remove <title> tags WITHOUT data-rh (keep data-rh ones)
+  head = head.replace(/<title(?![^>]*data-rh)[^>]*>[\s\S]*?<\/title>/g, '')
+
+  // Remove <meta> tags that are SEO-related and DON'T carry data-rh.
+  // Preserve: charset, viewport, theme-color (structural/pwa).
+  head = head.replace(
+    /<meta(?![^>]*data-rh)[^>]*(?:name="description"|property="og:|name="twitter:|name="robots")[^>]*\/?>/g,
+    '',
+  )
+
+  // Remove <link rel="canonical"> WITHOUT data-rh
+  head = head.replace(
+    /<link(?![^>]*data-rh)[^>]*rel="canonical"[^>]*\/?>/g,
+    '',
+  )
+
+  // Remove stray JSON-LD <script> tags WITHOUT data-rh
+  head = head.replace(
+    /<script(?![^>]*data-rh)[^>]*type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/g,
+    '',
+  )
+
+  return head + rest
+}
+
 let count = 0
 
 for (const url of routes) {
@@ -98,23 +145,20 @@ for (const url of routes) {
 
   // Stamp all injected head tags with data-rh="" so react-helmet-async
   // recognises them on client hydration and REPLACES them instead of
-  // appending new duplicates. Without this attribute Bing's JS renderer
-  // sees 2 title / 2 meta-description / 2 canonical tags.
+  // appending new duplicates.
   const stampedHeadTags = headTags.replace(
     /<(title|meta|link|script)(\s|>)/g,
     (_match, tag: string, rest: string) => `<${tag} data-rh=""${rest}`,
   )
 
-  // When headTags contains a <title>, remove the generic fallback <title> from
-  // the template so the document never ends up with two title elements.
-  const hasPageTitle = stampedHeadTags.includes('<title')
-  const templateForRoute = hasPageTitle
-    ? template.replace(/<title[^>]*>[^<]*<\/title>/, '')
-    : template
-
-  const fullHtml = templateForRoute
+  // Build the full HTML then run the dedup cleanup pass.
+  // The cleanup handles any duplicates regardless of their origin
+  // (template leftovers, vite-plugin-pwa injections, SSR double-renders, etc.)
+  const rawHtml = template
     .replace('<!--app-head-->', stampedHeadTags)
     .replace('<div id="root"><!--app-html--></div>', `<div id="root">${appHtml}</div>`)
+
+  const fullHtml = removeHeadDuplicates(rawHtml)
 
   const filePath =
     url === '/' ? toAbs('dist/index.html') : toAbs(`dist${url}/index.html`)
