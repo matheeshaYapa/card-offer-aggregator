@@ -43,12 +43,20 @@ export default defineConfig(({ isSsrBuild }) => ({
           ],
         },
         workbox: {
-          // Precache the full app shell + all SSG-prerendered HTML pages
+          // Precache the full app shell + all SSG-prerendered HTML pages.
+          // NOTE: navigateFallback is intentionally NOT set.
+          //
+          // With SSG, every public route has its own prerendered /route/index.html
+          // file in the precache. Setting navigateFallback to anything (including
+          // offline.html) causes Workbox to serve that file for ALL navigations
+          // that don't produce an exact cache key match — which shows "You're
+          // offline" even when the user is online.
+          //
+          // Without navigateFallback, Workbox serves precached HTML when available
+          // and falls through to the network for anything else. The offline.html
+          // file in public/ is still served by Cloudflare when accessed directly.
           globPatterns: ['**/*.{js,css,html,svg,png,jpg,webp,woff2}'],
-          // Serve offline.html for any navigation request that isn't in the cache
-          navigateFallback: '/offline.html',
-          // Don't apply the fallback to admin routes (they're not precached)
-          navigateFallbackDenylist: [/^\/admin/],
+          cleanupOutdatedCaches: true,
           runtimeCaching: [
             // Cache Supabase API responses — serve stale while revalidating
             {
