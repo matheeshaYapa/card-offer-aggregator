@@ -96,15 +96,24 @@ let count = 0
 for (const url of routes) {
   const { html: appHtml, headTags } = render(url)
 
+  // Stamp all injected head tags with data-rh="" so react-helmet-async
+  // recognises them on client hydration and REPLACES them instead of
+  // appending new duplicates. Without this attribute Bing's JS renderer
+  // sees 2 title / 2 meta-description / 2 canonical tags.
+  const stampedHeadTags = headTags.replace(
+    /<(title|meta|link|script)(\s|>)/g,
+    (_match, tag: string, rest: string) => `<${tag} data-rh=""${rest}`,
+  )
+
   // When headTags contains a <title>, remove the generic fallback <title> from
   // the template so the document never ends up with two title elements.
-  const hasPageTitle = headTags.includes('<title')
+  const hasPageTitle = stampedHeadTags.includes('<title')
   const templateForRoute = hasPageTitle
-    ? template.replace(/<title>[^<]*<\/title>/, '')
+    ? template.replace(/<title[^>]*>[^<]*<\/title>/, '')
     : template
 
   const fullHtml = templateForRoute
-    .replace('<!--app-head-->', headTags)
+    .replace('<!--app-head-->', stampedHeadTags)
     .replace('<div id="root"><!--app-html--></div>', `<div id="root">${appHtml}</div>`)
 
   const filePath =

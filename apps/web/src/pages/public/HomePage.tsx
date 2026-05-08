@@ -38,7 +38,7 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
             ? 'All Card Offers Sri Lanka'
             : 'Credit & Debit Card Promotions Sri Lanka'
         }
-        description="Discover the best credit and debit card promotions in Sri Lanka. Compare offers from Commercial Bank, HNB, Sampath, BOC, People's Bank and more — dining, shopping, travel, supermarket and online deals."
+        description="Credit and debit card promotions in Sri Lanka from HNB, Commercial Bank, Sampath, BOC and more. Find dining, shopping, travel and supermarket card offers."
         canonical={pageCanonical}
       />
       <WebsiteStructuredData />
