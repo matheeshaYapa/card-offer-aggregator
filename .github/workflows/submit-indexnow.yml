@@ -1,0 +1,54 @@
+name: Submit URLs to IndexNow
+
+# Runs after every push to main so Bing is notified of new/changed content.
+# Also runs on a daily schedule to catch any content approved via the admin panel.
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Daily at 19:30 UTC (30 min after the scraper — gives time for admin review)
+    - cron: "30 19 * * *"
+  workflow_dispatch:
+
+jobs:
+  indexnow:
+    name: Notify Bing via IndexNow
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install workspace dependencies
+        run: npm install --workspace=apps/web --ignore-scripts
+
+      - name: Submit sitemap URLs to IndexNow
+        env:
+          INDEXNOW_KEY:      ${{ secrets.INDEXNOW_KEY }}
+          VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
+          VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          echo "=== Generating fresh sitemap from Supabase ==="
+          cd apps/web
+          # Create a minimal dist/ so generate-sitemap.ts can write to it
+          mkdir -p dist
+          npx tsx scripts/generate-sitemap.ts
+          echo "=== Submitting to IndexNow ==="
+          npx tsx scripts/submit-indexnow.ts
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## IndexNow submission" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trigger | \`${{ github.event_name }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Site | https://card-promo.com |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | ${{ job.status }} |" >> "$GITHUB_STEP_SUMMARY"
