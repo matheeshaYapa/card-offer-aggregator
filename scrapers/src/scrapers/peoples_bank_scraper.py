@@ -114,36 +114,144 @@ class PeoplesBankScraper(BaseScraper):
     # ── Per-category parsing ──────────────────────────────────────────────
 
     def _parse_category_page(self, html: str, page_url: str) -> list[ScrapedOffer]:
+        """
+        Confirmed page structure (2026-05-10):
+
+          <div>                                         ← card container (NO class)
+            <div>50%</div>                              ← discount (bare div, no class)
+            <a href="/promotion/slug/"><img/></a>       ← image link (no text)
+            <a href="/promotion/slug/"><h3>Name</h3></a>← title link
+            <a href="/promotion/slug/">See more</a>     ← cta link
+            <p>From April 15, 2026 to July 15, 2026</p>← date range
+            <p>Call Us …</p>                            ← phone
+          </div>
+
+        Strategy:
+          Find every <a href="/promotion/…"> that contains an <h3> — these
+          are the title links. Go up to their parent <div> (the card container)
+          and extract discount + dates from its siblings.
+        """
         soup = BeautifulSoup(html, "lxml")
         card_type = "debit" if "debit" in page_url.lower() else "credit"
         category  = _category_from_url(page_url)
 
-        # ── Strategy 1: CSS selector matching ─────────────────────────────
-        blocks: list[Tag] = []
-        for selector in _CARD_SELECTORS:
-            found = soup.select(selector)
-            if found:
-                logger.debug(
-                    "  PeoplesBank: selector '%s' matched %d blocks", selector, len(found)
-                )
-                blocks = found
-                break
+        # Find all title links: <a href="/promotion/..."><h3>...</h3></a>
+        title_links = [
+            a for a in soup.find_all("a", href=re.compile(r"/promotion/"))
+            if a.find(["h3", "h2", "h4"])
+        ]
 
-        if blocks:
-            return self._extract_from_blocks(blocks, category, card_type, page_url)
-
-        # ── Strategy 2: /promotion/ links ─────────────────────────────────
-        promo_links = soup.find_all("a", href=re.compile(r"/promotion/"))
-        if promo_links:
+        if title_links:
             logger.debug(
-                "  PeoplesBank: found %d /promotion/ links on %s", len(promo_links), page_url
+                "  PeoplesBank: found %d title link(s) on %s",
+                len(title_links), page_url,
             )
-            return self._extract_from_promo_links(promo_links, category, card_type)
+            return self._extract_from_title_links(title_links, category, card_type)
+
+        # Fallback: any CSS selector match
+        for selector in _CARD_SELECTORS:
+            blocks = soup.select(selector)
+            if blocks:
+                logger.debug(
+                    "  PeoplesBank: selector '%s' → %d blocks", selector, len(blocks)
+                )
+                return self._extract_from_blocks(blocks, category, card_type, page_url)
 
         logger.debug("  PeoplesBank: no content found for %s", page_url)
         return []
 
-    # ── Extraction helpers ────────────────────────────────────────────────
+    # ── Primary extraction: title-link → parent card div ─────────────────
+
+    def _extract_from_title_links(
+        self,
+        title_links: list[Tag],
+        category: str,
+        card_type: str,
+    ) -> list[ScrapedOffer]:
+        """
+        For each <a href="/promotion/..."><h3>Name</h3></a>, go up to the
+        parent card <div> and extract discount + dates from its children.
+        """
+        results: list[ScrapedOffer] = []
+        seen_hashes: set[str] = set()
+        seen_urls: set[str] = set()
+
+        for link in title_links:
+            href = link.get("href", "")
+            source_url = f"{_BASE_URL}{href}" if href.startswith("/") else href
+            if source_url in seen_urls:
+                continue
+            seen_urls.add(source_url)
+
+            # Merchant name from h3 inside this link
+            h = link.find(["h3", "h2", "h4"])
+            title = clean_text(h.get_text()) if h else None
+            if not title or len(title) < 3:
+                continue
+
+            # Card container = parent of the title link
+            card = link.parent   # the outer <div> containing all siblings
+
+            # Discount: first direct <div> child with a short text (e.g. "50%")
+            discount: str | None = None
+            for child in (card.children if card else []):
+                if hasattr(child, "name") and child.name == "div":
+                    text = clean_text(child.get_text())
+                    if text and len(text) < 20 and re.search(r"%|\d+\s*off", text, re.IGNORECASE):
+                        discount = extract_discount(text) or text
+                        break
+
+            # Dates: <p> siblings with date text
+            date_text = ""
+            if card:
+                for p in card.find_all("p", recursive=False):
+                    text = clean_text(p.get_text())
+                    if re.search(r"\bfrom\b|\btill\b|\buntil\b|\b2025\b|\b2026\b|\b2027\b",
+                                 text, re.IGNORECASE):
+                        date_text = text
+                        break
+
+            dates      = extract_dates(date_text) if date_text else {}
+            valid_from = dates.get("valid_from")
+            valid_to   = dates.get("valid_to")
+
+            raw_parts = [title]
+            if discount:   raw_parts.append(discount)
+            if date_text:  raw_parts.append(date_text)
+            raw_parts.append(f"Category: {category}")
+            raw_parts.append(f"Card: {card_type}")
+            raw_text = " | ".join(raw_parts)
+
+            score = 0.60
+            if discount:    score += 0.20
+            if valid_to:    score += 0.10
+            if valid_from:  score += 0.05
+
+            ch = generate_candidate_hash(
+                source_url, title, discount,
+                valid_to.isoformat() if valid_to else None,
+                raw_text,
+            )
+            if ch in seen_hashes:
+                continue
+            seen_hashes.add(ch)
+
+            results.append(ScrapedOffer(
+                title=title,
+                description=date_text or None,
+                raw_text=truncate(raw_text, 2000),
+                source_url=source_url,
+                detected_merchant=title,
+                detected_discount=discount,
+                detected_valid_from=valid_from,
+                detected_valid_to=valid_to,
+                confidence_score=round(min(score, 1.0), 2),
+                candidate_hash=ch,
+            ))
+
+        return results
+
+    # ── CSS-selector fallback ─────────────────────────────────────────────
 
     def _extract_from_blocks(
         self,
@@ -154,70 +262,11 @@ class PeoplesBankScraper(BaseScraper):
     ) -> list[ScrapedOffer]:
         results: list[ScrapedOffer] = []
         seen: set[str] = set()
-
         for block in blocks:
             offer = self._card_to_offer(block, category, card_type, page_url)
             if offer and offer.candidate_hash not in seen:
                 seen.add(offer.candidate_hash)
                 results.append(offer)
-
-        return results
-
-    def _extract_from_promo_links(
-        self,
-        links: list[Tag],
-        category: str,
-        card_type: str,
-    ) -> list[ScrapedOffer]:
-        """Fallback: each <a href='/promotion/slug/'> link contains or is near a merchant name."""
-        results: list[ScrapedOffer] = []
-        seen_urls: set[str] = set()
-        seen_hashes: set[str] = set()
-
-        for link in links:
-            href = link.get("href", "")
-            source_url = f"{_BASE_URL}{href}" if href.startswith("/") else href
-            if source_url in seen_urls:
-                continue
-            seen_urls.add(source_url)
-
-            # Merchant from heading inside the link or nearby text
-            h = link.find(["h3", "h2", "h4"])
-            title = clean_text(h.get_text()) if h else clean_text(link.get_text())
-            if not title or len(title) < 3:
-                continue
-
-            # Discount from parent element
-            parent = link.parent
-            discount: str | None = None
-            if parent:
-                badge = parent.find(
-                    class_=re.compile(r"discount|badge|percent|off", re.IGNORECASE)
-                )
-                if badge:
-                    discount = clean_text(badge.get_text()) or None
-
-            raw_text = " | ".join(
-                filter(None, [title, discount, f"Category: {category}", f"Card: {card_type}"])
-            )
-            ch = generate_candidate_hash(source_url, title, discount, None, raw_text)
-            if ch in seen_hashes:
-                continue
-            seen_hashes.add(ch)
-
-            results.append(ScrapedOffer(
-                title=title,
-                description=None,
-                raw_text=truncate(raw_text, 2000),
-                source_url=source_url,
-                detected_merchant=title,
-                detected_discount=discount,
-                detected_valid_from=None,
-                detected_valid_to=None,
-                confidence_score=0.55 + (0.20 if discount else 0.0),
-                candidate_hash=ch,
-            ))
-
         return results
 
     def _card_to_offer(
