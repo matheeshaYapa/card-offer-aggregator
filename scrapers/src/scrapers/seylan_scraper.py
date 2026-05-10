@@ -122,6 +122,14 @@ class SeylanScraper(BaseScraper):
         # ── Title ─────────────────────────────────────────────────────────
         title_tag = body.find("h5") or body.find("h4") or body.find("h3")
         title = clean_text(title_tag.get_text()) if title_tag else None
+
+        # Some Seylan cards carry Vue.js/Mustache template expressions in the
+        # raw HTML (e.g. "{{slug}}">Victoria Golf Resort") because the site
+        # renders part of its content client-side. Strip these artifacts before
+        # saving so only the actual offer name is stored.
+        if title:
+            title = _strip_template_artifacts(title)
+
         if not title or len(title) < 3:
             return None
 
@@ -230,3 +238,27 @@ def _parse_gcal_date(yyyymmdd: str) -> date | None:
         return date(int(yyyymmdd[:4]), int(yyyymmdd[4:6]), int(yyyymmdd[6:8]))
     except Exception:
         return None
+
+
+# Matches Mustache/Handlebars {{...}} and Django/Jinja2 {%...%} expressions.
+# These appear in Seylan's raw HTML for cards that are rendered client-side
+# by Vue.js. Example: "{{slug}}">Victoria Golf Resort" → "Victoria Golf Resort"
+_TEMPLATE_EXPR_RE = re.compile(r"\{[\{%][^}]*[\}%]\}")
+
+# Strips leading attribute artifacts left after template removal: ">  or just >
+_ATTR_ARTIFACT_RE = re.compile(r'^[\s"\'>\|]+')
+
+
+def _strip_template_artifacts(text: str) -> str:
+    """
+    Remove Vue/Mustache/Jinja2 template expressions and any trailing HTML
+    attribute fragments from a scraped text string.
+
+    '{{slug}}">Victoria Golf Resort'  →  'Victoria Golf Resort'
+    '{%  if slug  %}>Hotel Name'       →  'Hotel Name'
+    """
+    # Remove all template expressions
+    text = _TEMPLATE_EXPR_RE.sub("", text)
+    # Strip leading characters that look like attribute artifacts (", >, |, spaces)
+    text = _ATTR_ARTIFACT_RE.sub("", text)
+    return clean_text(text)
