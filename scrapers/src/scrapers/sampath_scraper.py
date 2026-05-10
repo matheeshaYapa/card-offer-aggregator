@@ -124,9 +124,17 @@ class SampathScraper(BaseScraper):
             page = context.new_page()
 
             # ── Step 1: load main page to obtain Cloudflare clearance ─────
+            # Use "domcontentloaded" instead of "networkidle":
+            # Sampath's Angular SPA fires background API calls indefinitely,
+            # so "networkidle" is never reached and causes a timeout.
+            # "domcontentloaded" finishes as soon as the HTML is parsed and
+            # the CF cookie is set. We then sleep briefly to let Angular
+            # bootstrap before making page.evaluate() API calls.
             logger.info("  Sampath: loading main page for Cloudflare clearance …")
             try:
-                page.goto(_PAGE_URL, wait_until="networkidle", timeout=45_000)
+                page.goto(_PAGE_URL, wait_until="domcontentloaded", timeout=30_000)
+                # Give Angular time to initialise and register the CF cookies
+                time.sleep(4)
                 logger.info("  Sampath: main page loaded OK — CF challenge passed")
             except Exception as exc:
                 logger.error("  Sampath: failed to load main page: %s", exc)

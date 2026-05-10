@@ -15,7 +15,7 @@ export async function getAllCandidates(
     .from('scraped_offer_candidates')
     .select(CANDIDATE_SELECT)
     .order('created_at', { ascending: false })
-    .limit(500)
+    .limit(2500)
 
   if (status && status !== 'all') {
     query = query.eq('status', status)
