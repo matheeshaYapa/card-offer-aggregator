@@ -24,7 +24,10 @@ from dotenv import load_dotenv
 
 from src.db.supabase_client import SupabaseDB
 from src.scrapers.base_scraper import GenericScraper
+from src.scrapers.amana_scraper import AmanaScraper
 from src.scrapers.boc_scraper import BOCScraper
+from src.scrapers.scb_scraper import SCBScraper
+from src.scrapers.union_bank_scraper import UnionBankScraper
 from src.scrapers.commercial_bank_scraper import CommercialBankScraper
 from src.scrapers.hnb_scraper import HNBScraper
 from src.scrapers.ndb_scraper import NDBScraper
@@ -47,6 +50,9 @@ SCRAPER_MAP: dict[str, type] = {
     "seylan-bank": SeylanScraper,
     "nations-trust-bank": NTBScraper,
     "ndb-bank": NDBScraper,
+    "amana-bank": AmanaScraper,
+    "standard-chartered": SCBScraper,
+    "union-bank": UnionBankScraper,
 }
 
 

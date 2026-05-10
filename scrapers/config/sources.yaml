@@ -61,3 +61,24 @@ sources:
     source_url: https://www.ndbbank.com/cards/card-offers
     source_type: html
     scraper: ndb-bank
+
+  - key: amana-debit-offers
+    bank_slug: amana-bank
+    name: Amana Bank Visa Debit Card Offers
+    source_url: https://www.amanabank.lk/personal/services/visa-debit-card/offers/
+    source_type: html
+    scraper: amana-bank
+
+  - key: scb-good-life
+    bank_slug: standard-chartered
+    name: SCB Good Life Privileges
+    source_url: https://www.sc.com/lk/promotions/the-good-life-privileges/
+    source_type: html
+    scraper: standard-chartered
+
+  - key: union-bank-offers
+    bank_slug: union-bank
+    name: Union Bank Credit Card Offers
+    source_url: https://www.unionb.com/credit-cards-offers/
+    source_type: html
+    scraper: union-bank
