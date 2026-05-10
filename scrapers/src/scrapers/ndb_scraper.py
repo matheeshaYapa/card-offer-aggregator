@@ -24,8 +24,14 @@ Strategy:
   All data needed is available on the listing page itself — no detail
   page visits required. Parse each <a href="/cards/card-offers/offer-details/...">
   card to extract title, merchant, card type, and validity dates.
+
+NDB date formats (non-standard, handled by _parse_ndb_dates):
+  "5th, 12th, 19th & 26th May 2026 (Tuesdays)"          → last date = valid_to
+  "Every Weekend ... till 31st May 2026 (Sat & Sun)"     → "till DATE" = valid_to
+  "Until 31st May 2025"                                  → "Until DATE" = valid_to
 """
 import re
+from datetime import date
 
 from bs4 import BeautifulSoup, Tag
 
@@ -117,10 +123,16 @@ class NDBScraper(BaseScraper):
                 break
 
         # ── Dates ─────────────────────────────────────────────────────────
-        combined = f"{date_text} {title}".strip()
-        dates     = extract_dates(combined)
+        # Try the standard extractor first, then NDB-specific parsing as fallback.
+        combined   = f"{date_text} {title}".strip()
+        dates      = extract_dates(combined)
         valid_from = dates.get("valid_from")
         valid_to   = dates.get("valid_to")
+
+        if not valid_to and date_text:
+            valid_from_ndb, valid_to_ndb = _parse_ndb_dates(date_text)
+            valid_from = valid_from or valid_from_ndb
+            valid_to   = valid_to   or valid_to_ndb
 
         # ── Discount from title ───────────────────────────────────────────
         discount = extract_discount(title) or None
@@ -157,3 +169,98 @@ class NDBScraper(BaseScraper):
             confidence_score=round(min(score, 1.0), 2),
             candidate_hash=ch,
         )
+
+
+# ── Module helpers ────────────────────────────────────────────────────────────
+
+_NDB_MONTHS: dict[str, int] = {
+    "january": 1, "february": 2, "march": 3, "april": 4,
+    "may": 5, "june": 6, "july": 7, "august": 8,
+    "september": 9, "october": 10, "november": 11, "december": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4,
+    "jun": 6, "jul": 7, "aug": 8, "sep": 9,
+    "oct": 10, "nov": 11, "dec": 12,
+}
+
+_MONTH_NAMES = (
+    "January|February|March|April|May|June|July|August|September|"
+    "October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
+)
+
+# Matches "31st May 2026", "5th May 2026", "26 May 2026"
+_ORDINAL_DATE_RE = re.compile(
+    r"(\d{1,2})(?:st|nd|rd|th)?\s+(" + _MONTH_NAMES + r")\s+(\d{4})",
+    re.IGNORECASE,
+)
+
+# Matches "till/until/up to 31st May 2026"
+_TILL_RE = re.compile(
+    r"(?:till|until|up\s+to)\s+(\d{1,2}(?:st|nd|rd|th)?\s+"
+    r"(?:" + _MONTH_NAMES + r")\s+\d{4})",
+    re.IGNORECASE,
+)
+
+# Matches "from DATE to/till DATE"
+_FROM_TO_RE = re.compile(
+    r"from\s+(.+?)\s+(?:to|till)\s+"
+    r"(\d{1,2}(?:st|nd|rd|th)?\s+(?:" + _MONTH_NAMES + r")\s+\d{4})",
+    re.IGNORECASE,
+)
+
+
+def _parse_ndb_dates(text: str) -> tuple[date | None, date | None]:
+    """
+    Parse NDB-specific date formats that date_extractor.py does not handle:
+
+      "5th, 12th, 19th & 26th May 2026 (Tuesdays)"
+        → valid_to = last ordinal date in string (26th May 2026)
+
+      "Every Weekend from Every Weekend till 31st May 2026 (Saturday & Sunday)"
+        → valid_to = date after 'till' (31st May 2026)
+
+      "Until 31st May 2025"
+        → valid_to = date after 'Until' (31st May 2025)
+    """
+    valid_from: date | None = None
+    valid_to:   date | None = None
+
+    # 1. "till / until / up to DATE"
+    m = _TILL_RE.search(text)
+    if m:
+        valid_to = _ordinal_to_date(m.group(1))
+
+    # 2. "from DATE to/till DATE" — extracts both bounds
+    m2 = _FROM_TO_RE.search(text)
+    if m2:
+        valid_from = valid_from or _ordinal_to_date(m2.group(1))
+        valid_to   = valid_to   or _ordinal_to_date(m2.group(2))
+
+    # 3. Last ordinal date in text → valid_to
+    #    Handles "5th, 12th, 19th & 26th May 2026 (Tuesdays)"
+    if not valid_to:
+        all_matches = _ORDINAL_DATE_RE.findall(text)
+        if all_matches:
+            day_s, month_s, year_s = all_matches[-1]
+            mon = _NDB_MONTHS.get(month_s.lower())
+            if mon:
+                try:
+                    valid_to = date(int(year_s), mon, int(day_s))
+                except Exception:
+                    pass
+
+    return valid_from, valid_to
+
+
+def _ordinal_to_date(date_str: str) -> date | None:
+    """Convert '31st May 2026' or '31 May 2026' to a date object."""
+    m = _ORDINAL_DATE_RE.search(date_str)
+    if not m:
+        return None
+    day_s, month_s, year_s = m.group(1), m.group(2), m.group(3)
+    mon = _NDB_MONTHS.get(month_s.lower())
+    if not mon:
+        return None
+    try:
+        return date(int(year_s), mon, int(day_s))
+    except Exception:
+        return None
