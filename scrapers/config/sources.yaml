@@ -26,3 +26,38 @@ sources:
     source_url: https://www.sampath.lk/sampath-cards/credit-card-offer
     source_type: html
     scraper: sampath-bank
+
+  - key: boc-card-offers
+    bank_slug: boc
+    name: BOC Card Offers
+    source_url: https://www.boc.lk/personal-banking/card-offers
+    source_type: html
+    scraper: boc
+
+  - key: peoples-bank-offers
+    bank_slug: peoples-bank
+    name: Peoples Bank Special Offers
+    source_url: https://www.peoplesbank.lk/special-offers/
+    source_type: html
+    scraper: peoples-bank
+
+  - key: seylan-card-promotions
+    bank_slug: seylan-bank
+    name: Seylan Bank Card Promotions
+    source_url: https://www.seylan.lk/promotions/cards
+    source_type: html
+    scraper: seylan-bank
+
+  - key: ntb-card-promotions
+    bank_slug: nations-trust-bank
+    name: NTB Card Promotions
+    source_url: https://www.nationstrust.com/promotions/what-s-new
+    source_type: html
+    scraper: nations-trust-bank
+
+  - key: ndb-card-offers
+    bank_slug: ndb-bank
+    name: NDB Card Offers
+    source_url: https://www.ndbbank.com/cards/card-offers
+    source_type: html
+    scraper: ndb-bank
