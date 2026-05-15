@@ -97,3 +97,44 @@ html {
   @apply flex items-center gap-2 bg-red-50 border border-red-200
     text-red-700 text-sm rounded-xl px-4 py-3;
 }
+
+/* ── Admin responsive helpers ────────────────────────────────────────────── */
+
+/* Wraps <table> elements so they scroll horizontally on small screens */
+.admin-table-wrap {
+  @apply overflow-x-auto;
+}
+/* Ensure table content doesn't collapse below a readable width */
+.admin-table-wrap table {
+  @apply min-w-[560px];
+}
+
+/* Consistent page padding — tighter on mobile */
+.admin-page {
+  @apply p-4 sm:p-6;
+}
+
+/* Status / filter tabs scroll horizontally on mobile */
+.admin-tabs {
+  @apply flex gap-1 overflow-x-auto pb-0.5;
+  /* Hide scrollbar cross-browser */
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE / Edge */
+}
+.admin-tabs::-webkit-scrollbar {
+  display: none;               /* Chrome / Safari */
+}
+
+/* Make admin-th / admin-td slightly smaller on mobile */
+@media (max-width: 640px) {
+  .admin-th {
+    @apply px-3 py-2 text-[11px];
+  }
+  .admin-td {
+    @apply px-3 py-2.5 text-xs;
+  }
+  .admin-btn-primary,
+  .admin-btn-ghost {
+    @apply px-3 py-1.5 text-xs;
+  }
+}

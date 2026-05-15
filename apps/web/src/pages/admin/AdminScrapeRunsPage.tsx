@@ -36,7 +36,7 @@ export default function AdminScrapeRunsPage() {
   useEffect(() => { void load() }, [load])
 
   return (
-    <div className="p-6">
+    <div className="admin-page">
       <AdminPageHeader
         title="Scrape Runs"
         subtitle="History of scraper executions"

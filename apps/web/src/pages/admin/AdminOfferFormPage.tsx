@@ -276,7 +276,7 @@ export default function AdminOfferFormPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center h-64">
+      <div className="admin-page flex items-center justify-center h-64">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -284,7 +284,7 @@ export default function AdminOfferFormPage() {
 
   if (error && loading === false && !form.title && isEdit) {
     return (
-      <div className="p-6 text-center">
+      <div className="admin-page text-center">
         <p className="text-sm text-muted mb-3">{error}</p>
         <Link to="/admin/offers" className="text-sm text-primary underline">
           Back to offers
@@ -302,7 +302,7 @@ export default function AdminOfferFormPage() {
     .filter((g) => g.cards.length > 0);
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="admin-page max-w-3xl">
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

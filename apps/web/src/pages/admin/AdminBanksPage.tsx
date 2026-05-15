@@ -151,7 +151,7 @@ export default function AdminBanksPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="admin-page">
       <AdminPageHeader
         title="Banks"
         subtitle={`${banks.length} banks`}

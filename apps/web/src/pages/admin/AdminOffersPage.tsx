@@ -61,7 +61,7 @@ export default function AdminOffersPage() {
     : offers.filter((o) => o.status === statusFilter)
 
   return (
-    <div className="p-6">
+    <div className="admin-page">
       <AdminPageHeader
         title="Offers"
         subtitle={`${offers.length} total`}

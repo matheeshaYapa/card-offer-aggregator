@@ -254,7 +254,7 @@ export default function AdminScrapedCandidatesPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="p-6">
+    <div className="admin-page">
       <AdminPageHeader
         title="Scraped Candidates"
         subtitle={`${countByStatus['pending'] ?? 0} pending review`}

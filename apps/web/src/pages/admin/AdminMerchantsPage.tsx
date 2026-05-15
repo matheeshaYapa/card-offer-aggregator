@@ -77,7 +77,7 @@ export default function AdminMerchantsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="admin-page">
       <AdminPageHeader
         title="Merchants"
         subtitle={`${merchants.length} merchants`}

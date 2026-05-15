@@ -50,7 +50,7 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="admin-page">
       <AdminPageHeader
         title="Categories"
         subtitle={`${cats.length} categories`}

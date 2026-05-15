@@ -79,7 +79,7 @@ export default function AdminCardsPage() {
   const filtered = bankFilter ? cards.filter((c) => c.bank_id === bankFilter) : cards
 
   return (
-    <div className="p-6">
+    <div className="admin-page">
       <AdminPageHeader
         title="Cards"
         subtitle={`${cards.length} cards`}
