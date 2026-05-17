@@ -120,6 +120,25 @@ export async function toggleOfferActive(id: string, isActive: boolean): Promise<
   if (error) throw error
 }
 
+/**
+ * Update the status of multiple offers in a single Supabase query.
+ * Sets published_at when status changes to 'approved'.
+ */
+export async function bulkUpdateOfferStatus(
+  ids: string[],
+  status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'expired',
+): Promise<void> {
+  if (ids.length === 0) return
+  const { error } = await supabase
+    .from('offers')
+    .update({
+      status,
+      ...(status === 'approved' ? { published_at: new Date().toISOString() } : {}),
+    })
+    .in('id', ids)
+  if (error) throw error
+}
+
 export interface OfferBankRuleInput {
   bank_id: string
   card_type: 'credit' | 'debit' | null

@@ -74,12 +74,20 @@ export default function ApproveAsOfferModal({ candidate, onClose, onApproved }: 
   const ruleKey = useId()
 
   const [form, setForm] = useState<FormState>(() => buildInitialForm(candidate))
-  const [bankRules, setBankRules] = useState<BankRuleRow[]>([])
+  const [bankRules, setBankRules] = useState<BankRuleRow[]>(
+    () => initialBankRule ? [initialBankRule] : [],
+  )
 
   const [banks, setBanks] = useState<Bank[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [merchants, setMerchants] = useState<Merchant[]>([])
   const [refLoading, setRefLoading] = useState(true)
+
+  // Pre-populate a broad bank rule from the scrape source so the admin
+  // doesn't have to add it manually every time.
+  const initialBankRule: BankRuleRow | null = candidate.scrape_source?.bank_id
+    ? { _key: `${ruleKey}-init`, bank_id: candidate.scrape_source.bank_id, card_type: null, network: null }
+    : null
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

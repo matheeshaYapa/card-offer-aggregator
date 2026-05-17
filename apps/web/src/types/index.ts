@@ -111,7 +111,7 @@ export interface ScrapedOfferCandidate {
   status: CandidateStatus
   created_at: string
   // Joined relation (populated when queried with scrape_sources join)
-  scrape_source?: { id: string; name: string; source_url: string } | null
+  scrape_source?: { id: string; bank_id: string | null; name: string; source_url: string } | null
 }
 
 export interface ScrapeSource {
