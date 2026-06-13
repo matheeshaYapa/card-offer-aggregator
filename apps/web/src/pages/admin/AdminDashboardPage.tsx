@@ -1,11 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   FileText, Building2, CreditCard, Tag, Store, Inbox,
-  AlertCircle, Plus, ArrowRight,
+  AlertCircle, Plus, ArrowRight, Trash2, RefreshCw,
 } from 'lucide-react'
 import { useAdminAuth } from '@/hooks/useAdminAuth'
 import { supabase } from '@/lib/supabase/client'
+import ConfirmDialog from '@/components/admin/ConfirmDialog'
+import {
+  CLEANUP_DAYS,
+  getExpiredCleanupCounts,
+  cleanupExpired,
+  type CleanupCounts,
+} from '@/lib/supabase/queries/admin-cleanup'
 
 interface Counts {
   offers: number
@@ -28,6 +35,48 @@ const QUICK_LINKS = [
 export default function AdminDashboardPage() {
   const { session } = useAdminAuth()
   const [counts, setCounts] = useState<Counts | null>(null)
+
+  // ── Maintenance / cleanup state ──
+  const [cleanupCounts, setCleanupCounts] = useState<CleanupCounts | null>(null)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [confirmCleanup, setConfirmCleanup] = useState(false)
+  const [cleanupRunning, setCleanupRunning] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState<CleanupCounts | null>(null)
+  const [cleanupError, setCleanupError] = useState<string | null>(null)
+
+  const loadCleanupCounts = useCallback(async () => {
+    setCleanupLoading(true)
+    setCleanupError(null)
+    try {
+      setCleanupCounts(await getExpiredCleanupCounts())
+    } catch (e) {
+      setCleanupError(e instanceof Error ? e.message : 'Failed to load cleanup counts')
+    } finally {
+      setCleanupLoading(false)
+    }
+  }, [])
+
+  async function handleCleanup() {
+    setCleanupRunning(true)
+    setCleanupError(null)
+    try {
+      const result = await cleanupExpired()
+      setCleanupResult(result)
+      setConfirmCleanup(false)
+      await loadCleanupCounts()
+      // Refresh dashboard counts too — offers count probably changed
+      void (async () => {
+        try {
+          const offers = await supabase.from('offers').select('id', { count: 'exact', head: true })
+          setCounts((prev) => prev ? { ...prev, offers: offers.count ?? prev.offers } : prev)
+        } catch { /* non-critical */ }
+      })()
+    } catch (e) {
+      setCleanupError(e instanceof Error ? e.message : 'Cleanup failed')
+    } finally {
+      setCleanupRunning(false)
+    }
+  }
 
   useEffect(() => {
     async function loadCounts() {
@@ -53,7 +102,8 @@ export default function AdminDashboardPage() {
       }
     }
     void loadCounts()
-  }, [])
+    void loadCleanupCounts()
+  }, [loadCleanupCounts])
 
   const statCards = [
     { label: 'Offers',     value: counts?.offers,     icon: FileText,  to: '/admin/offers' },
@@ -120,6 +170,94 @@ export default function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* Maintenance — expired data cleanup */}
+      <div className="bg-white border border-border rounded-2xl p-4 mb-6">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+            <Trash2 size={15} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-semibold text-content">Maintenance</h2>
+            <p className="text-xs text-muted mt-0.5">
+              Permanently delete offers and scraped candidates that expired more
+              than {CLEANUP_DAYS} days ago.
+            </p>
+          </div>
+          <button
+            onClick={() => void loadCleanupCounts()}
+            disabled={cleanupLoading}
+            className="admin-icon-btn shrink-0"
+            title="Refresh counts"
+          >
+            <RefreshCw size={13} className={cleanupLoading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {cleanupError && (
+          <div className="admin-error mb-3 text-xs">{cleanupError}</div>
+        )}
+
+        {cleanupResult && (
+          <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 mb-3 flex items-center justify-between">
+            <span>
+              ✓ Deleted {cleanupResult.offers} offer{cleanupResult.offers !== 1 ? 's' : ''} and{' '}
+              {cleanupResult.candidates} candidate{cleanupResult.candidates !== 1 ? 's' : ''}.
+            </span>
+            <button
+              onClick={() => setCleanupResult(null)}
+              className="text-emerald-500 hover:text-emerald-700"
+            >✕</button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-xs text-muted">
+            {cleanupCounts ? (
+              cleanupCounts.offers === 0 && cleanupCounts.candidates === 0 ? (
+                <span>Nothing to delete — no records are more than {CLEANUP_DAYS} days past expiry.</span>
+              ) : (
+                <>
+                  <span className="font-semibold text-content">{cleanupCounts.offers}</span> offer{cleanupCounts.offers !== 1 ? 's' : ''}
+                  {' · '}
+                  <span className="font-semibold text-content">{cleanupCounts.candidates}</span> candidate{cleanupCounts.candidates !== 1 ? 's' : ''}
+                  {' '}eligible for cleanup.
+                </>
+              )
+            ) : (
+              <span className="text-slate-300">Loading…</span>
+            )}
+          </div>
+          <button
+            onClick={() => setConfirmCleanup(true)}
+            disabled={
+              cleanupLoading ||
+              cleanupRunning ||
+              !cleanupCounts ||
+              (cleanupCounts.offers === 0 && cleanupCounts.candidates === 0)
+            }
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Trash2 size={12} />
+            Clean Up Now
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={confirmCleanup}
+        title="Permanently Delete Expired Records"
+        message={
+          cleanupCounts
+            ? `This will permanently delete ${cleanupCounts.offers} offer${cleanupCounts.offers !== 1 ? 's' : ''} and ${cleanupCounts.candidates} candidate${cleanupCounts.candidates !== 1 ? 's' : ''} that expired more than ${CLEANUP_DAYS} days ago. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        danger
+        loading={cleanupRunning}
+        onConfirm={() => void handleCleanup()}
+        onCancel={() => setConfirmCleanup(false)}
+      />
 
       {/* Setup checklist */}
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
