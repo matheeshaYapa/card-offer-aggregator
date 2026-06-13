@@ -161,7 +161,7 @@ for (const url of routes) {
   const fullHtml = removeHeadDuplicates(rawHtml)
 
   const filePath =
-    url === '/' ? toAbs('dist/index.html') : toAbs(`dist${url}/index.html`)
+    url === '/' ? toAbs('dist/index.html') : toAbs(`dist${url}.html`)
 
   const dir = path.dirname(filePath)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
