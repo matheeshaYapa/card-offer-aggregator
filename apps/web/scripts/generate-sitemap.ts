@@ -71,7 +71,6 @@ type SitemapUrl = { loc: string; changefreq: string; priority: string }
 const urls: SitemapUrl[] = [
   { loc: '/', changefreq: 'daily', priority: '1.0' },
   { loc: '/offers', changefreq: 'daily', priority: '0.9' },
-  { loc: '/my-cards', changefreq: 'monthly', priority: '0.5' },
   ...bankSlugs.map((s) => ({ loc: `/bank/${s}`, changefreq: 'weekly', priority: '0.8' })),
   ...categorySlugs.map((s) => ({ loc: `/category/${s}`, changefreq: 'weekly', priority: '0.8' })),
   ...offerSlugs.map((s) => ({ loc: `/offer/${s}`, changefreq: 'weekly', priority: '0.7' })),
