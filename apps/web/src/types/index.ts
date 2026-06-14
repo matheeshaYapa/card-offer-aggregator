@@ -110,8 +110,11 @@ export interface ScrapedOfferCandidate {
   candidate_hash: string | null
   status: CandidateStatus
   created_at: string
+  offer_id?: string | null
   // Joined relation (populated when queried with scrape_sources join)
   scrape_source?: { id: string; bank_id: string | null; name: string; source_url: string } | null
+  // Joined relation (populated when queried with offers join)
+  offer?: { id: string; slug: string; status: import('./database').OfferStatus; is_active: boolean } | null
 }
 
 export interface ScrapeSource {

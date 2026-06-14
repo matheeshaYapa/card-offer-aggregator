@@ -16,6 +16,7 @@ import {
   updateCandidateStatus,
   bulkUpdateCandidateStatus,
   bulkApproveAsOffers,
+  bulkPublishHighConfidence,
 } from '@/lib/supabase/queries/candidates'
 import { getScrapeSourcesAdmin } from '@/lib/supabase/queries/admin-scrape'
 import { formatDate } from '@/utils/dateUtils'
@@ -208,10 +209,13 @@ export default function AdminScrapedCandidatesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
   const [confirmBulk, setConfirmBulk] = useState<{
-    action: 'rejected' | 'duplicate' | 'approved'
+    action: 'rejected' | 'duplicate' | 'approved' | 'published'
   } | null>(null)
   const [bulkApproveResult, setBulkApproveResult] = useState<{
     approved: number; failed: number
+  } | null>(null)
+  const [bulkPublishResult, setBulkPublishResult] = useState<{
+    published: number; skipped: number; failed: number
   } | null>(null)
 
   // ── Data loading ────────────────────────────────────────────────────────
@@ -329,10 +333,11 @@ export default function AdminScrapedCandidatesPage() {
   }
 
   // ── Bulk actions ────────────────────────────────────────────────────────
-  async function executeBulkAction(action: 'rejected' | 'duplicate' | 'approved') {
+  async function executeBulkAction(action: 'rejected' | 'duplicate' | 'approved' | 'published') {
     if (selectedIds.size === 0) return
     setBulkUpdating(true)
     setBulkApproveResult(null)
+    setBulkPublishResult(null)
     try {
       if (action === 'approved') {
         const toApprove = filtered.filter((c) => selectedIds.has(c.id))
@@ -343,6 +348,13 @@ export default function AdminScrapedCandidatesPage() {
         setSelectedIds(new Set())
         setConfirmBulk(null)
         setBulkApproveResult(result)
+      } else if (action === 'published') {
+        const toPublish = filtered.filter((c) => selectedIds.has(c.id))
+        const result = await bulkPublishHighConfidence(toPublish)
+        setSelectedIds(new Set())
+        setConfirmBulk(null)
+        setBulkPublishResult(result)
+        await load()
       } else {
         const ids = Array.from(selectedIds)
         await bulkUpdateCandidateStatus(ids, action)
@@ -474,6 +486,28 @@ export default function AdminScrapedCandidatesPage() {
         </div>
       )}
 
+      {/* Bulk publish result banner */}
+      {bulkPublishResult && (
+        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-xl px-4 py-3 mb-3">
+          <span>
+            ✓ {bulkPublishResult.published} offer{bulkPublishResult.published !== 1 ? 's' : ''} published live
+            {bulkPublishResult.skipped > 0 && (
+              <span className="ml-2">· {bulkPublishResult.skipped} skipped (below 80%)</span>
+            )}
+            {bulkPublishResult.failed > 0 && (
+              <span className="text-amber-600 ml-2">· {bulkPublishResult.failed} failed</span>
+            )}
+          </span>
+          <div className="flex items-center gap-3 shrink-0 ml-4">
+            <Link to="/admin/offers" className="underline text-xs font-medium">View Offers →</Link>
+            <button
+              onClick={() => setBulkPublishResult(null)}
+              className="text-emerald-500 hover:text-emerald-700 text-xs"
+            >✕</button>
+          </div>
+        </div>
+      )}
+
       {/* ── Bulk action bar — visible when rows are selected ── */}
       {selectedCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2.5 mb-3">
@@ -482,6 +516,16 @@ export default function AdminScrapedCandidatesPage() {
           </span>
 
           <div className="flex-1" />
+
+          {/* Bulk publish high-confidence */}
+          <button
+            onClick={() => setConfirmBulk({ action: 'published' })}
+            disabled={bulkUpdating}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          >
+            <CheckCircle2 size={13} />
+            Publish ≥80% as Live
+          </button>
 
           {/* Bulk approve */}
           <button
@@ -629,7 +673,21 @@ export default function AdminScrapedCandidatesPage() {
                         <p className="line-clamp-1">{c.scrape_source?.name ?? '—'}</p>
                       </td>
                       <td className="admin-td">
-                        <StatusBadge status={c.status} />
+                        <div className="flex items-center gap-1.5">
+                          <StatusBadge status={c.status} />
+                          {c.offer?.status === 'approved' && c.offer.is_active && (
+                            <a
+                              href={`/offer/${c.offer.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-0.5 text-[10px] font-medium text-emerald-600 hover:text-emerald-700"
+                              title="View live offer"
+                            >
+                              Live <ExternalLink size={10} />
+                            </a>
+                          )}
+                        </div>
                       </td>
                       <td className="admin-td text-muted text-xs whitespace-nowrap">
                         {formatDate(c.created_at)}
@@ -682,21 +740,27 @@ export default function AdminScrapedCandidatesPage() {
       <ConfirmDialog
         open={!!confirmBulk}
         title={
-          confirmBulk?.action === 'approved'
+          confirmBulk?.action === 'published'
+            ? `Publish High-Confidence Candidates as Live Offers`
+            : confirmBulk?.action === 'approved'
             ? `Approve ${selectedCount} Candidates as Drafts`
             : confirmBulk?.action === 'rejected'
               ? `Reject ${selectedCount} Candidates`
               : `Mark ${selectedCount} as Duplicate`
         }
         message={
-          confirmBulk?.action === 'approved'
+          confirmBulk?.action === 'published'
+            ? `This will immediately publish offers from the selected candidates that score 80% or higher confidence — they'll go live on the public site right away. Lower-confidence candidates in your selection are skipped and left pending.`
+            : confirmBulk?.action === 'approved'
             ? `This will create ${selectedCount} new offers in "Pending Review" status — nothing is published yet. You can add bank rules, merchant links, and publish each offer from the Offers page.`
             : confirmBulk?.action === 'rejected'
               ? `This will mark all ${selectedCount} selected candidates as rejected. They won't be deleted — you can review them later.`
               : `This will mark all ${selectedCount} selected candidates as duplicates. They won't be deleted.`
         }
         confirmLabel={
-          confirmBulk?.action === 'approved'
+          confirmBulk?.action === 'published'
+            ? `Publish ≥80% as Live`
+            : confirmBulk?.action === 'approved'
             ? `Create ${selectedCount} Draft Offers`
             : confirmBulk?.action === 'rejected'
               ? `Reject ${selectedCount}`

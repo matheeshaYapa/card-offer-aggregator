@@ -101,6 +101,7 @@ def main() -> None:
     # ── Process each source ───────────────────────────────────────────────
     total_new = 0
     total_skipped = 0
+    total_auto_published = 0
 
     for source in sources:
         source_name = source.get("name", "unknown")
@@ -116,15 +117,22 @@ def main() -> None:
             logger.info("  Extracted %d candidate(s)", len(offers))
 
             new_count = 0
+            auto_published_count = 0
             for offer in offers:
-                inserted = db.insert_candidate(offer, run_id, source_id)
+                inserted, auto_published = db.insert_candidate(offer, run_id, source_id, source)
                 if inserted:
                     new_count += 1
+                if auto_published:
+                    auto_published_count += 1
 
             skipped = len(offers) - new_count
             total_new += new_count
             total_skipped += skipped
-            logger.info("  ✓ %d new | %d duplicate(s) skipped", new_count, skipped)
+            total_auto_published += auto_published_count
+            logger.info(
+                "  ✓ %d new | %d duplicate(s) skipped | %d auto-published",
+                new_count, skipped, auto_published_count,
+            )
 
             db.update_scrape_run(run_id, "success", new_count)
             db.update_source_last_scraped(source_id)
@@ -135,7 +143,10 @@ def main() -> None:
 
     logger.info("")
     logger.info("=" * 60)
-    logger.info("Done. New candidates: %d | Duplicates skipped: %d", total_new, total_skipped)
+    logger.info(
+        "Done. New candidates: %d | Duplicates skipped: %d | Auto-published: %d",
+        total_new, total_skipped, total_auto_published,
+    )
     logger.info("=" * 60)
     logger.info("Review candidates at: /admin/scraped-candidates")
 
