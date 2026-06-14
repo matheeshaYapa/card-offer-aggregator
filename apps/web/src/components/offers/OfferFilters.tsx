@@ -8,7 +8,6 @@ interface OfferFiltersProps {
   onChange: <K extends keyof FilterState>(key: K, value: FilterState[K]) => void
   onReset: () => void
   activeFilterCount: number
-  selectedCardCount: number
   banks?: Bank[]
   categories?: Category[]
   merchants?: Merchant[]
@@ -31,7 +30,6 @@ export default function OfferFilters({
   onChange,
   onReset,
   activeFilterCount,
-  selectedCardCount,
   banks = [],
   categories = [],
   merchants = [],
@@ -93,20 +91,6 @@ export default function OfferFilters({
             className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
           />
         </button>
-
-        {/* My cards toggle */}
-        {selectedCardCount > 0 && (
-          <button
-            onClick={() => onChange('myCardsOnly', !filters.myCardsOnly)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              filters.myCardsOnly
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-muted border-border hover:border-primary/40'
-            }`}
-          >
-            {filters.myCardsOnly ? '✓ ' : ''}My cards only
-          </button>
-        )}
       </div>
 
       {/* Expanded filter panel */}

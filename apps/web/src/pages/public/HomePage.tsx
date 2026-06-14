@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { AlertCircle, Info, Wallet } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import MetaTags from '@/components/seo/MetaTags'
 import { WebsiteStructuredData } from '@/components/seo/StructuredData'
 import OfferFilters from '@/components/offers/OfferFilters'
 import OfferGrid from '@/components/offers/OfferGrid'
+import InlineCardManager from '@/components/cards/InlineCardManager'
 import { useOfferFilters } from '@/hooks/useOfferFilters'
 import { usePublicBrowseData } from '@/hooks/usePublicBrowseData'
 import { useSelectedCards } from '@/hooks/useSelectedCards'
@@ -15,7 +16,7 @@ interface HomePageProps {
 }
 
 export default function HomePage({ routeMode = 'home' }: HomePageProps) {
-  const { selectedCards } = useSelectedCards()
+  const { selectedCards, addCard, removeCard, hasCard } = useSelectedCards()
   const [searchParams] = useSearchParams()
   const { offers, banks, categories, merchants, loading, error, reload } =
     usePublicBrowseData()
@@ -53,45 +54,15 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
           </p>
         </div>
 
-        {selectedCards.length === 0 && (
-          <Link
-            to="/my-cards"
-            className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 mb-5 hover:bg-primary/10 transition-colors"
-          >
-            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
-              <Wallet size={16} className="text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-content">Add your cards</p>
-              <p className="text-xs text-muted">
-                See offers matched to your specific bank cards
-              </p>
-            </div>
-            <span className="text-xs text-primary font-medium shrink-0">
-              Set up →
-            </span>
-          </Link>
-        )}
-
-        {selectedCards.length > 0 && (
-          <div className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-xl px-4 py-2.5 mb-5">
-            <Info size={14} className="text-primary shrink-0" />
-            <p className="text-xs text-muted">
-              Showing offers for{' '}
-              <span className="font-semibold text-content">
-                {selectedCards.length} selected card
-                {selectedCards.length !== 1 ? 's' : ''}
-              </span>
-              .{' '}
-              <Link
-                to="/my-cards"
-                className="text-primary underline underline-offset-2"
-              >
-                Manage cards
-              </Link>
-            </p>
-          </div>
-        )}
+        <InlineCardManager
+          selectedCards={selectedCards}
+          banks={banks}
+          onAdd={addCard}
+          onRemove={removeCard}
+          hasCard={hasCard}
+          myCardsOnly={filters.myCardsOnly}
+          onToggleMyCards={(next) => setFilter('myCardsOnly', next)}
+        />
 
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-5">
@@ -111,7 +82,6 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
           onChange={setFilter}
           onReset={resetFilters}
           activeFilterCount={activeFilterCount}
-          selectedCardCount={selectedCards.length}
           banks={banks}
           categories={categories}
           merchants={merchants}
