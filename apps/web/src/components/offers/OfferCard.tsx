@@ -38,7 +38,7 @@ export default function OfferCard({ offer }: OfferCardProps) {
   return (
     <Link
       to={`/offer/${offer.slug}`}
-      className="group relative flex flex-col bg-white rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+      className="group relative flex flex-col min-h-[210px] bg-white rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
     >
       {/* Bank-coloured accent stripe */}
       <span

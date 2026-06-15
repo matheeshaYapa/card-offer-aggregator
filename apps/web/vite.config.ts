@@ -12,6 +12,10 @@ export default defineConfig(({ isSsrBuild }) => ({
     !isSsrBuild &&
       VitePWA({
         registerType: 'autoUpdate',
+        // Inject the SW registration as a deferred script so it stays out of
+        // the critical render path (fixes the "render-blocking requests" /
+        // critical-chain PageSpeed audits for registerSW.js).
+        injectRegister: 'script-defer',
         includeAssets: ['favicon.ico', 'icons/icon.svg'],
         manifest: {
           name: 'CardPromo LK',
