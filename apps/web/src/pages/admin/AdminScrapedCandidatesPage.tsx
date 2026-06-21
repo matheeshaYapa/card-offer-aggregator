@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   RefreshCw, ExternalLink, Eye, CheckCircle2, XCircle,
@@ -18,9 +18,9 @@ import {
   bulkApproveAsOffers,
   bulkPublishHighConfidence,
 } from '@/lib/supabase/queries/candidates'
-import { getScrapeSourcesAdmin } from '@/lib/supabase/queries/admin-scrape'
+import { getBanks } from '@/lib/supabase/queries/banks'
 import { formatDate } from '@/utils/dateUtils'
-import type { CandidateStatus, ScrapedOfferCandidate, ScrapeSource } from '@/types'
+import type { Bank, CandidateStatus, ScrapedOfferCandidate } from '@/types'
 
 // ── Filter helpers ────────────────────────────────────────────────────────
 
@@ -47,6 +47,28 @@ function matchesDate(c: ScrapedOfferCandidate, f: DateFilter): boolean {
   if (f === 'expired') return vt !== null && vt < TODAY
   if (f === 'active')  return vt === null || vt >= TODAY
   return true
+}
+
+/**
+ * Pick the bank to pre-select: the one with the most pending candidates,
+ * falling back to the bank with the most candidates overall. Only banks in
+ * `optionIds` (i.e. banks that exist in the dropdown) are considered.
+ */
+function computeDefaultBank(
+  cands: ScrapedOfferCandidate[],
+  optionIds: Set<string>,
+): string {
+  const pending: Record<string, number> = {}
+  const total: Record<string, number> = {}
+  for (const c of cands) {
+    const bid = c.scrape_source?.bank_id
+    if (!bid || !optionIds.has(bid)) continue
+    total[bid] = (total[bid] ?? 0) + 1
+    if (c.status === 'pending') pending[bid] = (pending[bid] ?? 0) + 1
+  }
+  const top = (m: Record<string, number>) =>
+    Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
+  return top(pending) || top(total)
 }
 
 // ── Status tab config ─────────────────────────────────────────────────────
@@ -185,12 +207,12 @@ function CandidateDetailModal({
 
 export default function AdminScrapedCandidatesPage() {
   const [candidates, setCandidates] = useState<ScrapedOfferCandidate[]>([])
-  const [sources, setSources] = useState<ScrapeSource[]>([])
+  const [banks, setBanks] = useState<Bank[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [statusFilter, setStatusFilter] = useState<CandidateStatus | 'all'>('pending')
-  const [sourceFilter, setSourceFilter] = useState('')
+  const [bankFilter, setBankFilter] = useState('')
   const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceFilter>('')
   const [dateFilter, setDateFilter] = useState<DateFilter>('')
   const [search, setSearch] = useState('')
@@ -223,12 +245,12 @@ export default function AdminScrapedCandidatesPage() {
     setLoading(true)
     setError(null)
     try {
-      const [cands, srcs] = await Promise.all([
+      const [cands, bks] = await Promise.all([
         getAllCandidates('all'),
-        getScrapeSourcesAdmin(),
+        getBanks(),
       ])
       setCandidates(cands)
-      setSources(srcs)
+      setBanks(bks)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
@@ -241,13 +263,52 @@ export default function AdminScrapedCandidatesPage() {
   // Clear selection when filter changes
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [statusFilter, sourceFilter, confidenceFilter, dateFilter, search])
+  }, [statusFilter, bankFilter, confidenceFilter, dateFilter, search])
+
+  // ── Bank options & default selection ──────────────────────────────────────
+  // Banks that actually have candidates, named via the active-banks list.
+  const bankOptions = useMemo(() => {
+    const ids = new Set<string>()
+    for (const c of candidates) {
+      const bid = c.scrape_source?.bank_id
+      if (bid) ids.add(bid)
+    }
+    return banks
+      .filter((b) => ids.has(b.id))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [candidates, banks])
+
+  // On first data load, default the Bank dropdown to the bank with the most
+  // pending candidates (falling back to most candidates overall).
+  const defaultApplied = useRef(false)
+  useEffect(() => {
+    if (defaultApplied.current || bankOptions.length === 0) return
+    const optionIds = new Set(bankOptions.map((b) => b.id))
+    const def = computeDefaultBank(candidates, optionIds)
+    if (def) setBankFilter(def)
+    defaultApplied.current = true
+  }, [bankOptions, candidates])
+
+  // Changing the bank resets every other filter so the view starts clean.
+  function handleBankChange(bankId: string) {
+    setBankFilter(bankId)
+    setConfidenceFilter('')
+    setDateFilter('')
+    setSearch('')
+    setStatusFilter('pending')
+  }
 
   // ── Filtering ───────────────────────────────────────────────────────────
+  // Candidates limited to the selected bank — drives both the table and the
+  // status chip counts (which reflect the bank only, not the other filters).
+  const bankScoped = useMemo(() => {
+    if (!bankFilter) return candidates
+    return candidates.filter((c) => c.scrape_source?.bank_id === bankFilter)
+  }, [candidates, bankFilter])
+
   const filtered = useMemo(() => {
-    return candidates.filter((c) => {
+    return bankScoped.filter((c) => {
       if (statusFilter !== 'all' && c.status !== statusFilter) return false
-      if (sourceFilter && c.scrape_source_id !== sourceFilter) return false
       if (!matchesConfidence(c, confidenceFilter)) return false
       if (!matchesDate(c, dateFilter)) return false
       if (search) {
@@ -260,7 +321,7 @@ export default function AdminScrapedCandidatesPage() {
       }
       return true
     })
-  }, [candidates, statusFilter, sourceFilter, confidenceFilter, dateFilter, search])
+  }, [bankScoped, statusFilter, confidenceFilter, dateFilter, search])
 
   // Only pending candidates can be bulk-acted on
   const selectableIds = useMemo(
@@ -268,13 +329,14 @@ export default function AdminScrapedCandidatesPage() {
     [filtered],
   )
 
+  // Status chip counts reflect the selected bank only (per the spec).
   const countByStatus = useMemo(() => {
-    const counts: Record<string, number> = { all: candidates.length }
-    for (const c of candidates) {
+    const counts: Record<string, number> = { all: bankScoped.length }
+    for (const c of bankScoped) {
       counts[c.status] = (counts[c.status] ?? 0) + 1
     }
     return counts
-  }, [candidates])
+  }, [bankScoped])
 
   // ── Checkbox helpers ────────────────────────────────────────────────────
   const allSelectableChecked =
@@ -403,6 +465,23 @@ export default function AdminScrapedCandidatesPage() {
         </div>
       )}
 
+      {/* Bank — primary filter (drives the status chip counts below) */}
+      <div className="mb-3">
+        <label className="text-xs font-semibold text-content mb-1.5 block">
+          Bank
+        </label>
+        <select
+          value={bankFilter}
+          onChange={(e) => handleBankChange(e.target.value)}
+          className="admin-input sm:max-w-xs"
+        >
+          <option value="">All banks</option>
+          {bankOptions.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Status tabs */}
       <div className="admin-tabs mb-3">
         {STATUS_TABS.map(({ value, label }) => (
@@ -427,19 +506,7 @@ export default function AdminScrapedCandidatesPage() {
       </div>
 
       {/* Filters row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
-        {/* Source */}
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-          className="admin-input"
-        >
-          <option value="">All sources</option>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
         {/* Confidence */}
         <select
           value={confidenceFilter}
