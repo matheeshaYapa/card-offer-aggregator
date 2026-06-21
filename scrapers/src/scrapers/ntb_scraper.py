@@ -1,28 +1,26 @@
 """
 Nations Trust Bank (NTB) promotions scraper.
 
-Target: https://www.nationstrust.com/promotions/what-s-new
+Target: https://www.nationstrust.com/promotions
 
-NTB organises promotions as "offer bundles" — each bundle page covers
-several merchant-specific deals in a table:
+NTB organises promotions as "offer bundles". As of 2026-06 the site uses a
+FLAT URL scheme — every bundle lives directly under /promotions/<slug> (the
+older /promotions/<category>/<slug> nesting is gone). The single /promotions
+listing page links to every bundle.
 
-  Listing card (per category page):
-    <a href="/promotions/[category]/[offer-slug]">
-      <img ...>
-      <h3>Offer bundle title</h3>
-    </a>
+  Listing page (/promotions):
+    <a href="/promotions/[offer-slug]"> … </a>   (one path segment)
 
-  Individual offer page:
-    Table: Merchant | Offer details | Eligibility
-    "Valid till DD Month YYYY" somewhere on the page
-
-Categories (each has its own page of bundle links):
-  what-s-new  shopping  supermarket  leisure  dining  healthcare  regional  other
+  Individual offer page (/promotions/[offer-slug]):
+    <h1>Bundle title</h1>
+    Table: Merchant | Offer | Eligibility
+    Each Eligibility cell carries its own "Valid till DD Month YYYY".
 
 Strategy:
-  1. Fetch every category page to collect all unique offer bundle URLs.
+  1. Fetch the /promotions listing page and collect every flat offer link.
   2. For each unique URL, fetch the detail page.
-  3. Parse the table rows (merchant, offer, eligibility) and the validity date.
+  3. Parse the table rows (merchant, offer, eligibility); read the validity
+     date PER ROW from its eligibility cell.
   4. One candidate per table row — giving individual merchant-level candidates.
   5. Rate-limit to 0.5 s between detail page fetches.
 """
@@ -42,18 +40,20 @@ from src.utils.text_cleaner import clean_text, truncate
 logger = get_logger(__name__)
 
 _BASE_URL = "https://www.nationstrust.com"
+_LISTING_URL = f"{_BASE_URL}/promotions"
 
-# All category listing pages — each contains offer bundle links
-_CATEGORY_PAGES = [
-    f"{_BASE_URL}/promotions/what-s-new",
-    f"{_BASE_URL}/promotions/shopping",
-    f"{_BASE_URL}/promotions/supermarket",
-    f"{_BASE_URL}/promotions/leisure",
-    f"{_BASE_URL}/promotions/dining",
-    f"{_BASE_URL}/promotions/healthcare",
-    f"{_BASE_URL}/promotions/regional",
-    f"{_BASE_URL}/promotions/other",
-]
+# Flat /promotions/<slug> links that are NOT real offer bundles.
+_NON_OFFER_SLUGS = {
+    "general-terms-and-condition-for-offers",
+    "what-s-new", "shopping", "supermarket", "leisure", "dining",
+    "healthcare", "regional", "other", "wellness", "travel",
+}
+
+# A flat offer link: /promotions/<slug> with exactly one path segment.
+_OFFER_LINK_RE = re.compile(
+    r"^(?:https?://(?:www\.)?nationstrust\.com)?/promotions/([^/?#]+)/?$",
+    re.IGNORECASE,
+)
 
 
 class NTBScraper(BaseScraper):
@@ -61,24 +61,22 @@ class NTBScraper(BaseScraper):
     # ── Entry point ───────────────────────────────────────────────────────
 
     def run(self) -> list[ScrapedOffer]:
-        """Collect all offer bundle URLs across categories, then scrape each."""
+        """Collect all offer bundle URLs from /promotions, then scrape each."""
         # ── Step 1: collect every unique offer URL ─────────────────────────
         offer_urls: dict[str, str] = {}   # url → page title from listing
 
-        for cat_url in _CATEGORY_PAGES:
+        # Prefer the configured source URL, fall back to the canonical listing.
+        listing_candidates = [self.source_url, _LISTING_URL]
+        for listing in listing_candidates:
+            if not listing:
+                continue
             try:
-                html = self.fetch_html(cat_url)
-                found = self._extract_offer_links(html)
-                for url, title in found.items():
-                    if url not in offer_urls:
-                        offer_urls[url] = title
-                logger.debug(
-                    "  NTB: %s → %d offer link(s)",
-                    cat_url.rsplit("/", 1)[-1], len(found)
-                )
+                html = self.fetch_html(listing)
+                offer_urls = self._extract_offer_links(html)
+                if offer_urls:
+                    break
             except Exception as exc:
-                logger.warning("  NTB: failed to fetch category %s: %s", cat_url, exc)
-            time.sleep(0.3)
+                logger.warning("  NTB: failed to fetch listing %s: %s", listing, exc)
 
         logger.info("  NTB: %d unique offer bundle URL(s) collected", len(offer_urls))
 
@@ -123,23 +121,30 @@ class NTBScraper(BaseScraper):
     # ── Listing page: extract offer bundle links ──────────────────────────
 
     def _extract_offer_links(self, html: str) -> dict[str, str]:
-        """Return {absolute_url: listing_title} for every offer bundle link."""
+        """Return {absolute_url: listing_title} for every flat offer bundle link."""
         soup = BeautifulSoup(html, "lxml")
         results: dict[str, str] = {}
 
         for a in soup.find_all("a", href=True):
             href: str = a["href"]
-            # Match /promotions/[category]/[slug] (not the category index itself)
-            if not re.search(r"/promotions/[^/]+/[^/]+", href):
+            m = _OFFER_LINK_RE.match(href.strip())
+            if not m:
                 continue
-            full = f"{_BASE_URL}{href}" if href.startswith("/") else href
+            slug = m.group(1).lower()
+            if slug in _NON_OFFER_SLUGS:
+                continue
+
+            full = f"{_BASE_URL}/promotions/{m.group(1)}"
             if full in results:
                 continue
 
             h = a.find(["h3", "h2", "h4"])
             title = clean_text(h.get_text()) if h else clean_text(a.get_text())
-            if title and len(title) > 5:
-                results[full] = title
+            # Listing anchors are often image-only; fall back to a slug-derived
+            # title (the detail page's <h1> is the authoritative title anyway).
+            if not title or len(title) < 5:
+                title = slug.replace("-", " ").strip().title()
+            results[full] = title
 
         return results
 
@@ -162,9 +167,9 @@ class NTBScraper(BaseScraper):
         valid_from = dates.get("valid_from")
         valid_to   = dates.get("valid_to")
 
-        # ── Category from URL path ─────────────────────────────────────────
-        parts = source_url.replace(_BASE_URL, "").split("/")
-        category = parts[2].replace("-", " ").title() if len(parts) >= 3 else None
+        # ── Category: best-effort from the page <h1> (flat URLs carry none) ─
+        h1 = soup.find("h1")
+        category = clean_text(h1.get_text()) if h1 else None
 
         # ── Parse offer table ──────────────────────────────────────────────
         rows = self._find_offer_rows(soup)
@@ -174,22 +179,29 @@ class NTBScraper(BaseScraper):
             for merchant, offer_text, eligibility in rows:
                 if not merchant or len(merchant) < 3:
                     continue
-                discount = extract_discount(offer_text) or None
+                discount = extract_discount(offer_text) or extract_discount(eligibility) or None
+
+                # Each row carries its own "Valid till …" in the eligibility
+                # cell — prefer that over the page-level date.
+                row_dates  = extract_dates(eligibility) if eligibility else {}
+                row_from   = row_dates.get("valid_from") or valid_from
+                row_to     = row_dates.get("valid_to")   or valid_to
+
                 raw_parts = [merchant, offer_text]
                 if eligibility: raw_parts.append(f"Eligibility: {eligibility}")
                 if category:    raw_parts.append(f"Category: {category}")
-                if valid_to:    raw_parts.append(f"Valid to: {valid_to.isoformat()}")
+                if row_to:      raw_parts.append(f"Valid to: {row_to.isoformat()}")
                 raw_text = " | ".join(raw_parts)
 
                 score = 0.55
                 if discount:    score += 0.15
-                if valid_to:    score += 0.15
-                if valid_from:  score += 0.05
+                if row_to:      score += 0.15
+                if row_from:    score += 0.05
                 if eligibility: score += 0.10
 
                 ch = generate_candidate_hash(
                     source_url, merchant, discount,
-                    valid_to.isoformat() if valid_to else None,
+                    row_to.isoformat() if row_to else None,
                     raw_text,
                 )
                 candidates.append(ScrapedOffer(
@@ -199,8 +211,8 @@ class NTBScraper(BaseScraper):
                     source_url=source_url,
                     detected_merchant=merchant,
                     detected_discount=discount,
-                    detected_valid_from=valid_from,
-                    detected_valid_to=valid_to,
+                    detected_valid_from=row_from,
+                    detected_valid_to=row_to,
                     confidence_score=round(min(score, 1.0), 2),
                     candidate_hash=ch,
                 ))

@@ -5,36 +5,35 @@ Target: https://www.amanabank.lk/personal/services/visa-debit-card/offers/
 
 Server-rendered HTML. Amana Bank only issues Visa Debit Cards — no credit cards.
 
-All offers are listed on the main page in <li> elements. Each offer has:
+As of 2026-06 the offers page was rebuilt. Every offer is a single
+`div.offer-item-wrapper`, and — crucially — carries a calendar "add to
+calendar" button whose `data-ics` attribute is a JSON blob with fully
+structured data:
 
-  <li>
-    <img src="/images/.../logo.jpg" alt="Merchant Name">
-    <div class="offer-details">
-      <h3>Merchant Name</h3>
-      <p>Up to 35% Off for Amana Bank Debit Card Holders</p>
-      <p><strong>Location/s:</strong> Colombo City Centre, ...</p>
-      <p><strong>Offer Period Valid on:</strong> 25th May 2026 to 31st Dec 2026</p>
+  <div class="item-wrapper-box offer-item-wrapper" data-districts="nuwaraeliya">
+    <img alt="Araliya Green City" ...>
+    <a class="calendar_button"
+       data-ics='{"start":"2026-07-31","end":"2026-07-31",
+                  "summary":"Araliya Green City",
+                  "description":"30% Off on the standard Bill for Amana cardholders"}'>
+    <div class="pop"> … <h3 class="pop_up_title">Araliya Green City</h3> …
+        <div class="pop-row-2"><p>30% Off on the standard Bill …</p></div> …
     </div>
-  </li>
-
-Category pages (for category context):
-  /personal/services/visa-debit-card/offers/dining.html
-  /personal/services/visa-debit-card/offers/clothing-and-retail.html
-  ... (9 categories total)
+  </div>
 
 Strategy:
-  1. Scrape each category page so each offer is tagged with its category.
-  2. Fall back to the main "All Offers" page if a category page fails.
-  3. Parse div.offer-details inside each <li> for the offer data.
-  4. "Offer Period Valid on:" paragraph contains the date range.
-  5. date_extractor.py handles "25th May 2026 to 31st Dec 2026" natively.
+  1. Fetch the single offers page (all ~48 offers are server-rendered there).
+  2. For each `div.offer-item-wrapper`, read the `data-ics` JSON for
+     merchant (summary), description, and start/end dates — the most reliable
+     signal available. Fall back to the visible <h3>/<p> if ICS is missing.
+  3. Derive the discount from the description text.
 """
+import json
 import re
-import time
+from datetime import date
 
 from bs4 import BeautifulSoup, Tag
 
-from src.extractors.date_extractor import extract_dates
 from src.extractors.discount_extractor import extract_discount
 from src.models.scraped_offer import ScrapedOffer
 from src.scrapers.base_scraper import BaseScraper
@@ -44,29 +43,8 @@ from src.utils.text_cleaner import clean_text, truncate
 
 logger = get_logger(__name__)
 
-_BASE_URL  = "https://www.amanabank.lk"
-_MAIN_URL  = f"{_BASE_URL}/personal/services/visa-debit-card/offers/"
-
-# Category pages — each shows only the offers in that category.
-# Scraping per-category gives us the category label for each candidate.
-_CATEGORY_PAGES: list[tuple[str, str]] = [
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/dining.html",                  "Dining"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/clothing-and-retail.html",     "Clothing & Retail"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/supermarket.html",             "Supermarket"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/leisure-and-hospitality.html", "Leisure & Hospitality"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/healthcare-and-wellness.html", "Healthcare & Wellness"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/lifestyle-and-others.html",    "Lifestyle & Others"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/visa.html",                    "Visa Global Offers"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/amana-kids.html",              "Amana Kids"),
-    (f"{_BASE_URL}/personal/services/visa-debit-card/offers/prestige-card-offers.html",    "Prestige Card Offers"),
-]
-
-# Paragraph text patterns to skip (location, contact, website)
-_SKIP_PARA_RE = re.compile(
-    r"^(?:location|contact|website|call|tel|phone|visit|reservations?|"
-    r"for\s+more|terms?\s*&|t\s*&\s*c|amana\s+bank\s+debit\s+card\s+holders?)\b",
-    re.IGNORECASE,
-)
+_BASE_URL = "https://www.amanabank.lk"
+_MAIN_URL = f"{_BASE_URL}/personal/services/visa-debit-card/offers/"
 
 
 class AmanaScraper(BaseScraper):
@@ -74,70 +52,37 @@ class AmanaScraper(BaseScraper):
     # ── Entry point ───────────────────────────────────────────────────────
 
     def run(self) -> list[ScrapedOffer]:
-        """Scrape each category page; fall back to main page if all fail."""
-        candidates: list[ScrapedOffer] = []
-        seen_hashes: set[str] = set()
-        any_success = False
+        """Scrape the single offers page (all offers are server-rendered)."""
+        url = self.source_url or _MAIN_URL
+        try:
+            html = self.fetch_html(url)
+        except Exception as exc:
+            logger.error("  Amana: failed to fetch %s: %s", url, exc)
+            return []
 
-        for url, category in _CATEGORY_PAGES:
-            try:
-                html = self.fetch_html(url)
-                page_offers = self._parse_page(html, url, category)
-                new = 0
-                for offer in page_offers:
-                    if offer.candidate_hash not in seen_hashes:
-                        seen_hashes.add(offer.candidate_hash)
-                        candidates.append(offer)
-                        new += 1
-                if new:
-                    any_success = True
-                logger.info("  Amana: %-28s → %d candidate(s)", category, new)
-            except Exception as exc:
-                logger.warning("  Amana: failed for %s: %s", category, exc)
-            time.sleep(0.4)
-
-        # Fallback: if all category pages failed, try the main page
-        if not any_success:
-            logger.info("  Amana: all category pages failed — trying main page")
-            try:
-                html = self.fetch_html(_MAIN_URL)
-                page_offers = self._parse_page(html, _MAIN_URL, None)
-                for offer in page_offers:
-                    if offer.candidate_hash not in seen_hashes:
-                        seen_hashes.add(offer.candidate_hash)
-                        candidates.append(offer)
-            except Exception as exc:
-                logger.error("  Amana: main page also failed: %s", exc)
-
+        candidates = self._parse_page(html, url)
         logger.info("  Amana: %d unique candidate(s) total", len(candidates))
         return candidates
 
     def parse(self, html: str) -> list[ScrapedOffer]:
         """Fallback — called by BaseScraper.run() if needed."""
-        return self._parse_page(html, self.source_url, None)
+        return self._parse_page(html, self.source_url or _MAIN_URL)
 
     # ── Page parsing ──────────────────────────────────────────────────────
 
-    def _parse_page(
-        self,
-        html: str,
-        page_url: str,
-        category: str | None,
-    ) -> list[ScrapedOffer]:
+    def _parse_page(self, html: str, page_url: str) -> list[ScrapedOffer]:
         soup = BeautifulSoup(html, "lxml")
+        wrappers = soup.find_all("div", class_="offer-item-wrapper")
 
-        # Each offer has a div.offer-details inside a <li>
-        offer_divs = soup.find_all("div", class_="offer-details")
-
-        if not offer_divs:
-            logger.debug("  Amana: no div.offer-details on %s", page_url)
+        if not wrappers:
+            logger.debug("  Amana: no div.offer-item-wrapper on %s", page_url)
             return []
 
         results: list[ScrapedOffer] = []
         seen: set[str] = set()
 
-        for div in offer_divs:
-            offer = self._extract_offer(div, category, page_url)
+        for wrapper in wrappers:
+            offer = self._extract_offer(wrapper, page_url)
             if offer and offer.candidate_hash not in seen:
                 seen.add(offer.candidate_hash)
                 results.append(offer)
@@ -146,46 +91,39 @@ class AmanaScraper(BaseScraper):
 
     # ── Per-offer extraction ──────────────────────────────────────────────
 
-    def _extract_offer(
-        self,
-        div: Tag,
-        category: str | None,
-        source_url: str,
-    ) -> ScrapedOffer | None:
-        # ── Merchant name from <h3> ───────────────────────────────────────
-        h3 = div.find(["h3", "h4", "h2"])
-        merchant = clean_text(h3.get_text()) if h3 else None
+    def _extract_offer(self, wrapper: Tag, source_url: str) -> ScrapedOffer | None:
+        ics = self._read_ics(wrapper)
+
+        # ── Merchant ──────────────────────────────────────────────────────
+        merchant = (ics.get("summary") or "").strip() or None
+        if not merchant:
+            h3 = wrapper.find(["h3", "h4", "h2"])
+            merchant = clean_text(h3.get_text()) if h3 else None
+        if not merchant:
+            img = wrapper.find("img", alt=True)
+            merchant = clean_text(img["alt"]) if img and img.get("alt") else None
         if not merchant or len(merchant) < 2:
             return None
         title = merchant
 
-        # ── Paragraphs: discount description and dates ────────────────────
-        description: str | None = None
-        date_text   = ""
+        # ── Description (offer text) ──────────────────────────────────────
+        description = (ics.get("description") or "").strip() or None
+        if not description:
+            row2 = wrapper.find("div", class_="pop-row-2")
+            if row2:
+                for p in row2.find_all("p"):
+                    txt = clean_text(p.get_text())
+                    if txt and len(txt) >= 4:
+                        description = txt
+                        break
 
-        for p in div.find_all("p"):
-            raw = clean_text(p.get_text())
-            if not raw or len(raw) < 4:
-                continue
-
-            # Date paragraph — "Offer Period Valid on: DATE to DATE"
-            if re.search(r"offer\s+period", raw, re.IGNORECASE):
-                # Strip the label, keep just the date range
-                date_text = re.sub(r"^[^:]+:\s*", "", raw).strip()
-                continue
-
-            # Skip location / contact / terms paragraphs
-            if _SKIP_PARA_RE.match(raw):
-                continue
-
-            # First remaining paragraph = offer description
-            if not description:
-                description = raw
-
-        # ── Dates ─────────────────────────────────────────────────────────
-        dates      = extract_dates(date_text) if date_text else {}
-        valid_from = dates.get("valid_from")
-        valid_to   = dates.get("valid_to")
+        # ── Dates from the ICS start/end (ISO yyyy-mm-dd) ─────────────────
+        valid_from = _parse_iso(ics.get("start"))
+        valid_to   = _parse_iso(ics.get("end"))
+        # The site frequently duplicates the end date into "start" when only an
+        # expiry is known — treat an equal pair as "end only".
+        if valid_from and valid_to and valid_from == valid_to:
+            valid_from = None
 
         # ── Discount ──────────────────────────────────────────────────────
         discount = extract_discount(description or title) or None
@@ -193,8 +131,9 @@ class AmanaScraper(BaseScraper):
         # ── Build raw_text ────────────────────────────────────────────────
         raw_parts = [title]
         if description: raw_parts.append(description)
-        if date_text:   raw_parts.append(f"Period: {date_text}")
-        if category:    raw_parts.append(f"Category: {category}")
+        if valid_to:    raw_parts.append(f"Valid to: {valid_to.isoformat()}")
+        districts = wrapper.get("data-districts")
+        if districts:   raw_parts.append(f"Districts: {districts}")
         raw_parts.append("Card: Visa Debit")
         raw_text = " | ".join(raw_parts)
 
@@ -223,3 +162,31 @@ class AmanaScraper(BaseScraper):
             confidence_score=round(min(score, 1.0), 2),
             candidate_hash=ch,
         )
+
+    # ── Helpers ───────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _read_ics(wrapper: Tag) -> dict:
+        """Parse the calendar button's data-ics JSON (best-effort)."""
+        btn = wrapper.find("a", class_="calendar_button")
+        raw = btn.get("data-ics") if btn else None
+        if not raw:
+            return {}
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            # Some entries contain stray control chars — strip and retry.
+            try:
+                return json.loads(re.sub(r"[\x00-\x1f]", " ", raw))
+            except Exception:
+                return {}
+
+
+def _parse_iso(value: str | None) -> date | None:
+    """Parse an ISO yyyy-mm-dd date, returning None on failure."""
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value.strip()[:10])
+    except (ValueError, AttributeError):
+        return None
