@@ -4,7 +4,8 @@ import { AlertCircle, ArrowLeft, Building2 } from 'lucide-react'
 import MetaTags from '@/components/seo/MetaTags'
 import { BreadcrumbStructuredData } from '@/components/seo/StructuredData'
 import OfferGrid from '@/components/offers/OfferGrid'
-import { getBankBySlug } from '@/lib/supabase/queries/banks'
+import BankNav from '@/components/offers/BankNav'
+import { getBankBySlug, getBanks } from '@/lib/supabase/queries/banks'
 import { getOffersByBankSlug } from '@/lib/supabase/queries/offers'
 import type { Bank, Offer } from '@/types'
 import { canonicalUrl, SITE_URL } from '@/utils/seo'
@@ -27,8 +28,16 @@ export default function BankPage() {
   const { bankSlug } = useParams<{ bankSlug: string }>()
   const [bank, setBank] = useState<Bank | null | undefined>(undefined)
   const [offers, setOffers] = useState<Offer[]>([])
+  const [allBanks, setAllBanks] = useState<Bank[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Load the full bank list once for the cross-bank navigation strip.
+  useEffect(() => {
+    getBanks()
+      .then(setAllBanks)
+      .catch(() => setAllBanks([]))
+  }, [])
 
   const loadPage = useCallback(async () => {
     if (!bankSlug) return
@@ -136,6 +145,9 @@ export default function BankPage() {
         {!loading && bank && (
           <p className="text-sm text-muted leading-relaxed mb-5 max-w-2xl">{seoCopy}</p>
         )}
+
+        {/* Cross-bank navigation — jump to another bank's offers */}
+        <BankNav banks={allBanks} activeSlug={bankSlug} />
 
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-5">

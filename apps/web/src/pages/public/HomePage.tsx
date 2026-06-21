@@ -5,6 +5,7 @@ import MetaTags from '@/components/seo/MetaTags'
 import { WebsiteStructuredData } from '@/components/seo/StructuredData'
 import OfferFilters from '@/components/offers/OfferFilters'
 import OfferGrid from '@/components/offers/OfferGrid'
+import BankNav from '@/components/offers/BankNav'
 import InlineCardManager from '@/components/cards/InlineCardManager'
 import { useOfferFilters } from '@/hooks/useOfferFilters'
 import { usePublicBrowseData } from '@/hooks/usePublicBrowseData'
@@ -63,6 +64,8 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
           myCardsOnly={filters.myCardsOnly}
           onToggleMyCards={(next) => setFilter('myCardsOnly', next)}
         />
+
+        <BankNav banks={banks} loading={loading} />
 
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-5">
