@@ -100,6 +100,35 @@ jobs:
           python cleanup_expired.py
           echo "=== Cleanup finished ($(date -u '+%Y-%m-%dT%H:%M:%SZ')) ==="
 
+      # ── 5c. Trigger site rebuild (Cloudflare Pages deploy hook) ───────────
+      # Rebuilds the public site after a successful scrape so that:
+      #   • newly auto-published offers get their own prerendered page with the
+      #     correct self-referential canonical + meta (fixes the GSC
+      #     "Alternative page with proper canonical" issue, where non-prerendered
+      #     offers fall back to index.html and inherit the homepage canonical);
+      #   • expired offers drop out of the prerender + sitemap.
+      # Skipped automatically if the deploy-hook secret is not configured.
+      - name: Trigger site rebuild
+        if: success()
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "CLOUDFLARE_DEPLOY_HOOK_URL not set — skipping site rebuild."
+            echo "Add it: Cloudflare Pages → Settings → Builds & deployments →"
+            echo "        Deploy hooks (branch: main), then save the URL as the"
+            echo "        GitHub secret CLOUDFLARE_DEPLOY_HOOK_URL."
+            exit 0
+          fi
+          echo "Triggering Cloudflare Pages rebuild…"
+          status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$DEPLOY_HOOK")
+          echo "Deploy hook responded HTTP $status"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "ERROR: deploy hook returned non-2xx ($status) — rebuild not queued."
+            exit 1
+          fi
+          echo "Rebuild queued successfully."
+
       # ── 6. Summary ────────────────────────────────────────────────────────
       - name: Write job summary
         if: always()
