@@ -7,6 +7,7 @@
     "build": "npm run build --workspace=apps/web",
     "build:client": "npm run build:client --workspace=apps/web",
     "typecheck": "npm run typecheck --workspace=apps/web",
-    "preview": "npm run preview --workspace=apps/web"
+    "preview": "npm run preview --workspace=apps/web",
+    "verify:offer-ssr": "node scripts/verify-offer-ssr.mjs"
   }
 }
