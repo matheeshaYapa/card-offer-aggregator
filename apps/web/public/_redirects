@@ -1,0 +1,3 @@
+/offers/page/1 /offers 301
+/admin /admin-app 200
+/admin/* /admin-app 200

@@ -99,8 +99,8 @@ apps/web/dist/
 |---|---|
 | Framework preset | None (custom build) |
 | Build command | `npm run build` |
-| Output directory | `apps/web/dist` |
-| Root directory | *(leave blank — monorepo root)* |
+| Output directory | `dist` |
+| Root directory | `apps/web` |
 | Node.js version | 20 |
 
 **Environment variables** (Pages dashboard → Settings → Environment variables):
@@ -111,11 +111,7 @@ VITE_SUPABASE_ANON_KEY  = your-anon-key
 VITE_APP_BASE_URL       = https://your-domain.com
 ```
 
-**Client-side routing** — the file `apps/web/public/_redirects` must contain:
-```
-/* /index.html 200
-```
-This file is already present. Cloudflare Pages copies it to `dist/` automatically.
+**Public routing** uses prerendered HTML, a top-level 404 page and a Pages Function in `apps/web/functions`. The admin routes use the rewrites shipped in `apps/web/public/_redirects`. A catch-all rewrite would serve homepage content for missing URLs.
 
 ---
 

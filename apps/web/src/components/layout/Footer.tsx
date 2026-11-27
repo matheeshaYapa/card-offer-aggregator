@@ -4,10 +4,7 @@ import { usePublicSnapshot } from '@/lib/publicSnapshot'
 import { getOfferStats, bankLabel } from '@/utils/offerStats'
 
 /**
- * Footer link sets. Hardcoded (rather than fetched) so the internal links are
- * present in the prerendered HTML for SEO crawlers. Keep these slugs in sync
- * with the SEED_* lists in scripts/prerender.ts so every link resolves to a
- * prerendered page.
+ * Fallback links for client-only sessions before catalogue data is available.
  */
 const FOOTER_BANKS: { slug: string; name: string }[] = [
   { slug: 'commercial-bank', name: 'Commercial Bank' },
@@ -30,10 +27,10 @@ export default function Footer() {
   // live offers is linked from every page. Without it, fall back to the seeds.
   const snapshot = usePublicSnapshot()
   const stats = snapshot ? getOfferStats(snapshot.offers) : null
-  const footerBanks = stats?.topBanks.length
+  const footerBanks = stats
     ? stats.topBanks.map(({ item }) => ({ slug: item.slug, name: bankLabel(item) }))
     : FOOTER_BANKS
-  const footerCategories = stats?.topCategories.length
+  const footerCategories = stats
     ? stats.topCategories.map(({ item }) => ({ slug: item.slug, name: item.name }))
     : FOOTER_CATEGORIES
 

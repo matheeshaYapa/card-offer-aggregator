@@ -70,8 +70,8 @@ VALUES ('<paste-uuid>', true);
 |---|---|
 | Framework preset | None |
 | Build command | `npm run build` |
-| Build output directory | `apps/web/dist` |
-| Root directory | *(leave blank)* |
+| Build output directory | `dist` |
+| Root directory | `apps/web` |
 
 ### 2.3 Environment variables
 

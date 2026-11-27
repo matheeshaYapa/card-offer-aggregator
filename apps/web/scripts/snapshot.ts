@@ -17,7 +17,7 @@ import { sriLankaDate } from '../src/utils/dateUtils'
 
 const PAGE_SIZE = 250
 
-export async function loadSnapshot(root: string): Promise<PublicSnapshot | null> {
+export async function loadSnapshot(root: string): Promise<PublicSnapshot> {
   const fixture = process.env.PRERENDER_SNAPSHOT_FIXTURE
   if (fixture) {
     console.log(`Using snapshot fixture ${fixture}`)
@@ -26,46 +26,40 @@ export async function loadSnapshot(root: string): Promise<PublicSnapshot | null>
 
   const env = loadEnv('production', root, 'VITE_')
   if (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY) {
-    console.warn('VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY not set — prerendering without offer data')
-    return null
+    throw new Error('Configure the public Supabase URL and anon key, or set PRERENDER_SNAPSHOT_FIXTURE for an offline build.')
   }
   const client = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
   const today = sriLankaDate()
 
-  try {
-    const offers: PublicSnapshot['offers'] = []
-    for (let offset = 0; ; offset += PAGE_SIZE) {
-      const { data, error } = await client
-        .from('offers')
-        .select(OFFER_SELECT)
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .or(`valid_from.is.null,valid_from.lte.${today}`)
-        .or(`valid_to.is.null,valid_to.gte.${today}`)
-        .order('is_featured', { ascending: false })
-        .order('published_at', { ascending: false, nullsFirst: false })
-        .order('id')
-        .range(offset, offset + PAGE_SIZE - 1)
-      if (error) throw error
-      offers.push(...((data ?? []) as PublicSnapshot['offers']))
-      if (!data || data.length < PAGE_SIZE) break
-    }
-    const [banks, categories] = await Promise.all([
-      client.from('banks').select('*').eq('is_active', true).order('name'),
-      client.from('categories').select('*').eq('is_active', true).order('name'),
-    ])
-    if (banks.error) throw banks.error
-    if (categories.error) throw categories.error
+  const offers: PublicSnapshot['offers'] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await client
+      .from('offers')
+      .select(OFFER_SELECT)
+      .eq('status', 'approved')
+      .eq('is_active', true)
+      .or(`valid_from.is.null,valid_from.lte.${today}`)
+      .or(`valid_to.is.null,valid_to.gte.${today}`)
+      .order('is_featured', { ascending: false })
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('id')
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw error
+    offers.push(...((data ?? []) as PublicSnapshot['offers']))
+    if (!data || data.length < PAGE_SIZE) break
+  }
+  const [banks, categories] = await Promise.all([
+    client.from('banks').select('*').eq('is_active', true).order('name'),
+    client.from('categories').select('*').eq('is_active', true).order('name'),
+  ])
+  if (banks.error) throw banks.error
+  if (categories.error) throw categories.error
 
-    return {
-      generatedAt: new Date().toISOString(),
-      offers,
-      banks: banks.data as PublicSnapshot['banks'],
-      categories: categories.data as PublicSnapshot['categories'],
-    }
-  } catch (error) {
-    console.warn(`Unable to load the public snapshot from Supabase: ${error instanceof Error ? error.message : String(error)}`)
-    return null
+  return {
+    generatedAt: new Date().toISOString(),
+    offers,
+    banks: banks.data as PublicSnapshot['banks'],
+    categories: categories.data as PublicSnapshot['categories'],
   }
 }
 

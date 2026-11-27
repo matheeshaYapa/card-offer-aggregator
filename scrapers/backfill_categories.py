@@ -18,6 +18,7 @@ categories exist.
 import sys
 from argparse import ArgumentParser
 from collections import Counter
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -45,6 +46,7 @@ def main() -> int:
     parser.add_argument("--apply", action="store_true", help="Write changes (default is a dry run)")
     parser.add_argument("--min-confidence", type=float, default=MIN_CONFIDENCE)
     parser.add_argument("--show", type=int, default=15, help="Example rows to print per category")
+    parser.add_argument("--live-offers-only", action="store_true", help="Limit changes to currently public offers and skip pending candidates")
     args = parser.parse_args()
 
     db = get_supabase_client()
@@ -53,9 +55,18 @@ def main() -> int:
     if missing:
         logger.warning("Categories %s don't exist yet; apply migration 010 first. Offers for them stay uncategorised.", sorted(missing))
 
-    offers = fetch_all(lambda: db.table("offers")
+    today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+
+    def live_filter(query):
+        if args.live_offers_only:
+            return (query.eq("status", "approved").eq("is_active", True)
+                    .or_(f"valid_from.is.null,valid_from.lte.{today}")
+                    .or_(f"valid_to.is.null,valid_to.gte.{today}"))
+        return query
+
+    offers = fetch_all(lambda: live_filter(db.table("offers")
                        .select("id, title, description, merchant:merchants(name)")
-                       .is_("category_id", "null").order("id"))
+                       .is_("category_id", "null")).order("id"))
     raw_by_offer = {
         row["offer_id"]: row["raw_text"]
         for row in fetch_all(lambda: db.table("scraped_offer_candidates")
@@ -89,7 +100,7 @@ def main() -> int:
 
     # Pending candidates: give reviewers (and the publisher) a pre-filled category.
     try:
-        candidates = fetch_all(lambda: db.table("scraped_offer_candidates")
+        candidates = [] if args.live_offers_only else fetch_all(lambda: db.table("scraped_offer_candidates")
                                .select("id, title, description, detected_merchant, raw_text")
                                .eq("status", "pending").is_("detected_category_id", "null").order("id"))
     except Exception as exc:  # detected_category_id arrives with migration 010
@@ -108,8 +119,8 @@ def main() -> int:
 
     for slug, ids in planned.items():
         for start in range(0, len(ids), 200):
-            (db.table("offers").update({"category_id": categories[slug]})
-             .in_("id", ids[start:start + 200]).is_("category_id", "null").execute())
+            live_filter(db.table("offers").update({"category_id": categories[slug]})
+                        .in_("id", ids[start:start + 200]).is_("category_id", "null")).execute()
     for cand_id, category_id, confidence in candidate_updates:
         (db.table("scraped_offer_candidates")
          .update({"detected_category_id": category_id, "category_confidence": confidence})

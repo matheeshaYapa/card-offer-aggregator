@@ -13,14 +13,6 @@ export function WebsiteStructuredData() {
       'Find the best credit and debit card promotions in Sri Lanka. Compare offers from HNB, Commercial Bank, Sampath, BOC and more.',
     url: SITE_URL,
     inLanguage: 'en-LK',
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `${SITE_URL}/?search={search_term_string}`,
-      },
-      'query-input': 'required name=search_term_string',
-    },
   }
 
   return (

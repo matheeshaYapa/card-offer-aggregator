@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { OFFERS_PER_PAGE as PAGE_SIZE, offerPagePath } from '@/utils/offerPagination'
 import type { Offer } from '@/types'
 import OfferCard from './OfferCard'
 import EmptyState from '@/components/common/EmptyState'
@@ -11,10 +13,6 @@ interface OfferGridProps {
   compact?: boolean
   emptyAction?: () => void
 }
-
-/** How many cards to render per page. Keeps the DOM small to avoid the heavy
- * forced-reflow / layout-shift cost of mounting hundreds of cards at once. */
-const PAGE_SIZE = 24
 
 function SkeletonCard() {
   return (
@@ -42,6 +40,7 @@ export default function OfferGrid({
   emptyAction,
 }: OfferGridProps) {
   const [visible, setVisible] = useState(PAGE_SIZE)
+  const { pathname, search } = useLocation()
 
   // Reset paging whenever the result set changes (new data, filters, search).
   useEffect(() => {
@@ -84,13 +83,17 @@ export default function OfferGrid({
 
           {!loading && remaining > 0 && (
             <div className="flex justify-center mt-6">
-              <button
-                onClick={() => setVisible((v) => v + PAGE_SIZE)}
-                className="px-5 py-2.5 rounded-xl border border-border bg-white text-sm font-semibold text-content hover:border-primary/40 hover:text-primary transition-colors"
-              >
-                Load more
-                <span className="text-muted font-normal"> ({remaining} more)</span>
-              </button>
+              {pathname === '/offers' && !search ? (
+                <Link className="browse-action" to={offerPagePath(2)}>Next page →</Link>
+              ) : (
+                <button
+                  onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                  className="px-5 py-2.5 rounded-xl border border-border bg-white text-sm font-semibold text-content hover:border-primary/40 hover:text-primary transition-colors"
+                >
+                  Load more
+                  <span className="text-muted font-normal"> ({remaining} more)</span>
+                </button>
+              )}
             </div>
           )}
         </>

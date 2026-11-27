@@ -79,9 +79,9 @@ export default function CategoryPage() {
     {
       question: `How many ${lower} card promotions are there right now?`,
       answer: `There are ${count} live ${lower} offers` +
-        (stats.installmentCount ? `, including ${stats.installmentCount} 0% installment plans` : '') +
+        (stats.installmentCount ? `, including ${stats.installmentCount} installment plans` : '') +
         (stats.endingThisWeek ? `. ${stats.endingThisWeek} of them end within the next 7 days` : '') +
-        '. The list is refreshed daily from the banks\' own promotion pages.',
+        '. See each offer for eligibility and the issuing bank’s terms.',
     },
   ] : []
 

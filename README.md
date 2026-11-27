@@ -326,8 +326,8 @@ For full details see [`docs/database.md`](docs/database.md).
 | Setting | Value |
 |---|---|
 | Build command | `npm run build` |
-| Output directory | `apps/web/dist` |
-| Root directory | *(leave blank — uses monorepo root)* |
+| Output directory | `dist` |
+| Root directory | `apps/web` |
 
 **Environment variables** (set in Pages dashboard → Settings → Environment variables):
 
@@ -337,11 +337,7 @@ VITE_SUPABASE_ANON_KEY = your-anon-key
 VITE_APP_BASE_URL      = https://your-domain.com
 ```
 
-**Client-side routing** — add `apps/web/public/_redirects`:
-
-```
-/* /index.html 200
-```
+**Public routing** uses prerendered HTML, a top-level 404 page and a Pages Function in `apps/web/functions`. The admin routes use the rewrites shipped in `apps/web/public/_redirects`. A catch-all rewrite would serve homepage content for missing URLs.
 
 ### Alternative: Netlify / Vercel / GitHub Pages
 

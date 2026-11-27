@@ -5,6 +5,7 @@ import { lazy, Suspense } from 'react'
 import PageContainer from '@/components/layout/PageContainer'
 import HomePage from '@/pages/public/HomePage'
 import OffersPage from '@/pages/public/OffersPage'
+import OfferResultsPage from '@/pages/public/OfferResultsPage'
 import MyCardsPage from '@/pages/public/MyCardsPage'
 import OfferDetailsPage from '@/pages/public/OfferDetailsPage'
 import BankPage from '@/pages/public/BankPage'
@@ -44,6 +45,7 @@ export default function App() {
       <Route element={<PageContainer />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/offers" element={<OffersPage />} />
+        <Route path="/offers/page/:pageNumber" element={<OfferResultsPage />} />
         <Route path="/my-cards" element={<MyCardsPage />} />
         <Route path="/offer/:offerSlug" element={<OfferDetailsPage />} />
         <Route path="/bank/:bankSlug" element={<BankPage />} />

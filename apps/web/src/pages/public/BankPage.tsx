@@ -70,7 +70,7 @@ export default function BankPage() {
       question: `What ${shortName} card offers are available right now?`,
       answer: `${bankName} has ${count} live card promotions in ${month}` +
         (topCategories.length ? `, mostly ${listJoin(topCategories.slice(0, 3).map(({ item, count: n }) => `${item.name.toLowerCase()} (${n})`))}` : '') +
-        (stats.installmentCount ? `, plus ${stats.installmentCount} 0% installment plans` : '') + '.',
+        (stats.installmentCount ? `, plus ${stats.installmentCount} installment plans` : '') + '.',
     },
     {
       question: `Can I use ${shortName} debit cards for these promotions?`,

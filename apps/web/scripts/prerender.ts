@@ -2,71 +2,39 @@
  * Pre-render script: generates static HTML for each route using the SSR bundle.
  * Run after: `vite build` and `vite build --ssr src/entry-server.tsx --outDir dist/.ssr`
  *
- * Route discovery:
- *  - When VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are present, slugs are fetched
- *    live from Supabase so new content is included automatically.
- *  - Otherwise falls back to the slugs seeded in migration 003_seed_base_data.sql.
- *    Update SEED_* arrays when you add banks/categories/offers manually.
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { loadPublicRouteSlugs } from './public-routes'
 import { loadSnapshot, writeSnapshot } from './snapshot'
+import { OFFERS_PER_PAGE, offerPagePath } from '../src/utils/offerPagination'
 import { slimForSnapshot, SNAPSHOT_META_NAME, type PublicSnapshot } from '../src/lib/snapshotData'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const toAbs = (p: string) => path.resolve(root, p)
 
-// ── Seed fallback slugs (mirrors migration 003_seed_base_data.sql) ──────────
-const SEED_BANK_SLUGS = ['commercial-bank', 'sampath-bank', 'hnb', 'boc', 'peoples-bank']
-const SEED_CATEGORY_SLUGS = ['dining', 'shopping', 'travel', 'supermarket', 'electronics']
-const SEED_OFFER_SLUGS = [
-  'combank-20-off-selected-restaurants',
-  'sampath-10-cashback-keells-super',
-  'hnb-15-off-cinnamon-hotels',
-  'boc-5-cashback-fuel',
-  'sampath-12-off-abans',
-  'hnb-bogo-hotel-buffet',
-  'boc-0-installment-singer',
-  'combank-5-cashback-cargills',
-]
-
-let bankSlugs = SEED_BANK_SLUGS
-let categorySlugs = SEED_CATEGORY_SLUGS
-let offerSlugs = SEED_OFFER_SLUGS
-
-// Render every page with real data (see src/lib/publicSnapshot.tsx). The
-// browser loads the same slimmed snapshot before hydrating.
-const rawSnapshot = await loadSnapshot(root)
-const snapshot: PublicSnapshot | null = rawSnapshot ? slimForSnapshot(rawSnapshot) : null
-let snapshotMeta = ''
-if (snapshot) {
-  const snapshotUrl = writeSnapshot(toAbs('dist'), snapshot)
-  // Preload so the snapshot downloads alongside the JS bundle; main.tsx waits
-  // for it before hydrating.
-  snapshotMeta = `<meta name="${SNAPSHOT_META_NAME}" content="${snapshotUrl}" />\n` +
-    `<link rel="preload" href="${snapshotUrl}" as="fetch" crossorigin="anonymous" />`
-  bankSlugs = snapshot.banks.map(({ slug }) => slug)
-  categorySlugs = snapshot.categories.map(({ slug }) => slug)
-  offerSlugs = snapshot.offers.map(({ slug }) => slug)
-} else {
-  const liveRoutes = await loadPublicRouteSlugs(root)
-  if (liveRoutes?.banks) bankSlugs = liveRoutes.banks
-  if (liveRoutes?.categories) categorySlugs = liveRoutes.categories
-  if (liveRoutes?.offers) offerSlugs = liveRoutes.offers
-}
+// Use the same public data for route discovery, server rendering and hydration.
+const snapshot = slimForSnapshot(await loadSnapshot(root))
+const snapshotUrl = writeSnapshot(toAbs('dist'), snapshot)
+const snapshotMeta = `<meta name="${SNAPSHOT_META_NAME}" content="${snapshotUrl}" />\n` +
+  `<link rel="preload" href="${snapshotUrl}" as="fetch" crossorigin="anonymous" />`
 
 const template = fs.readFileSync(toAbs('dist/index.html'), 'utf-8')
+fs.writeFileSync(toAbs('dist/admin-app.html'), template.replace(
+  '<!--app-head-->', '<meta name="robots" content="noindex, nofollow" />',
+))
 
 const routes = [
   '/',
   '/offers',
+  ...Array.from({ length: Math.max(0, Math.ceil(snapshot.offers.length / OFFERS_PER_PAGE) - 1) },
+    (_, index) => offerPagePath(index + 2)),
   '/my-cards',
-  ...bankSlugs.map((s) => `/bank/${s}`),
-  ...categorySlugs.map((s) => `/category/${s}`),
-  ...offerSlugs.map((s) => `/offer/${s}`),
+  '/404',
+  ...snapshot.banks.map(({ slug }) => `/bank/${slug}`),
+  ...snapshot.categories.map(({ slug }) => `/category/${slug}`),
+  ...snapshot.offers.map(({ slug }) => `/offer/${slug}`),
 ]
 
 // Dynamically import the SSR bundle built by `vite build --ssr`

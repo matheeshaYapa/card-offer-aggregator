@@ -36,7 +36,7 @@ export default function MetaTags({
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
-      <link rel="canonical" href={resolvedCanonical} />
+      {canonical && <link rel="canonical" href={canonical} />}
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
       {/* Open Graph */}

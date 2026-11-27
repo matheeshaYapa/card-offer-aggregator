@@ -26,7 +26,7 @@ function homeFaq(stats: OfferStats, month: string): FaqItem[] {
       question: 'What card promotions are available in Sri Lanka right now?',
       answer: `In ${month} there are ${stats.total} live credit and debit card promotions from ${stats.bankCount} Sri Lankan banks` +
         (topCategories.length ? `, covering ${listJoin(topCategories)} and more` : '') +
-        `. ${stats.installmentCount} are 0% installment plans and ${stats.cashbackCount} are cashback offers. CardPromo LK lists them all in one place and removes offers as soon as they expire.`,
+        `. ${stats.installmentCount} are installment plans and ${stats.cashbackCount} are cashback offers. CardPromo LK lists them all in one place and removes offers as soon as they expire.`,
     },
     ...(topBanks.length ? [{
       question: 'Which banks have the most card offers?',
@@ -42,7 +42,7 @@ function homeFaq(stats: OfferStats, month: string): FaqItem[] {
     },
     {
       question: 'How up to date are the offers?',
-      answer: "Offers are collected from each bank's official promotions pages every day, and expired offers are removed automatically. Each offer links to the bank's own page — always confirm the final terms with the bank or merchant before paying.",
+      answer: "Offers are collected from each bank's official promotions pages, and expired offers are removed automatically. Each offer links to the bank's own page — always confirm the final terms with the bank or merchant before paying.",
     },
     {
       question: 'Is CardPromo LK free and independent?',
@@ -72,8 +72,8 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
     ? `All Credit & Debit Card Offers in Sri Lanka${count ? ` (${count} live)` : ''}`
     : `Card Promotions in Sri Lanka${count ? `: ${count} Credit & Debit Card Offers` : ' – Credit & Debit Card Offers'}`
   const description = count
-    ? `${count} live credit and debit card promotions from ${stats.bankCount} Sri Lankan banks for ${month} — dining, hotels, supermarkets, fuel, online shopping and 0% installment plans. Updated daily; filter by the cards you have.`
-    : 'Every credit and debit card promotion in Sri Lanka in one place — dining, hotels, supermarkets, online shopping and 0% installment plans. Updated daily; filter by the cards you have.'
+    ? `${count} live credit and debit card promotions from ${stats.bankCount} Sri Lankan banks for ${month} — dining, hotels, supermarkets, fuel, online shopping and 0% installment plans. Filter by your bank, card type and offer category.`
+    : 'Compare credit and debit card promotions in Sri Lanka — dining, hotels, supermarkets, online shopping and 0% installment plans. Filter by your bank, card type and offer category.'
 
   const liveCategories = new Set(stats.topCategories.map(({ item }) => item.slug))
   const categoryLink = (slug: string, text: string) =>
@@ -104,7 +104,7 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
               {isOffersRoute ? 'All card offers in Sri Lanka' : <>Card promotions in Sri Lanka, <em>matched to your cards.</em></>}
             </h1>
             <p className="browse-hero-intro" hidden={isOffersRoute}>
-              Every credit and debit card deal from {stats.bankCount || 'all major'} Sri Lankan banks in one place — dining, hotels, supermarkets, fuel and 0% installments. Add your cards to see only the offers you can use.
+              Explore credit and debit card deals from {stats.bankCount || 'participating'} Sri Lankan banks — dining, hotels, supermarkets, fuel and 0% installments. Add your cards to see only the offers you can use.
             </p>
             <div className="browse-search" role="search" aria-label="Card offers">
               <SearchInput
@@ -167,7 +167,7 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
               <h2 id="about-heading">Your guide to card promotions in Sri Lanka</h2>
               <p>
                 Sri Lankan banks run hundreds of credit and debit card promotions at any time, but each bank lists them on its own website.
-                CardPromo LK brings {count ? `all ${count}` : 'them'} together and checks for new and expired offers every day, so you can compare
+                CardPromo LK brings {count ? `all ${count}` : 'them'} together so you can compare
                 deals across {listJoin(stats.topBanks.slice(0, 5).map(({ item }) => bankLabel(item))) || 'every major bank'} without visiting each site.
               </p>
               <p>
