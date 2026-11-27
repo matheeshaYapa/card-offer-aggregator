@@ -28,7 +28,7 @@ if (fs.existsSync(envLocal)) {
 }
 
 const KEY      = process.env.INDEXNOW_KEY
-const SITE_URL = (process.env.VITE_APP_BASE_URL ?? 'https://card-promo.com').replace(/\/$/, '')
+const SITE_URL = (process.env.VITE_APP_BASE_URL || 'https://card-promo.com').replace(/\/$/, '')
 const HOST     = new URL(SITE_URL).hostname   // e.g. card-promo.com
 
 if (!KEY) {

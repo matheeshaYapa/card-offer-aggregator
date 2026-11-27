@@ -32,15 +32,11 @@ jobs:
         env:
           INDEXNOW_KEY:      ${{ secrets.INDEXNOW_KEY }}
           VITE_APP_BASE_URL: ${{ secrets.VITE_APP_BASE_URL }}
-          VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
-          echo "=== Generating fresh sitemap from Supabase ==="
           cd apps/web
-          # Create a minimal dist/ so generate-sitemap.ts can write to it
           mkdir -p dist
-          npx tsx scripts/generate-sitemap.ts
-          echo "=== Submitting to IndexNow ==="
+          # Submit only URLs already being served by the public deployment.
+          curl --fail --show-error --silent --retry 3 https://card-promo.com/sitemap.xml --output dist/sitemap.xml
           npx tsx scripts/submit-indexnow.ts
 
       - name: Write job summary
