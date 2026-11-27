@@ -12,6 +12,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { loadPublicRouteSlugs } from './public-routes'
+import { loadSnapshot, writeSnapshot } from './snapshot'
+import { slimForSnapshot, SNAPSHOT_META_NAME, type PublicSnapshot } from '../src/lib/snapshotData'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -35,10 +37,26 @@ let bankSlugs = SEED_BANK_SLUGS
 let categorySlugs = SEED_CATEGORY_SLUGS
 let offerSlugs = SEED_OFFER_SLUGS
 
-const liveRoutes = await loadPublicRouteSlugs(root)
-if (liveRoutes?.banks) bankSlugs = liveRoutes.banks
-if (liveRoutes?.categories) categorySlugs = liveRoutes.categories
-if (liveRoutes?.offers) offerSlugs = liveRoutes.offers
+// Render every page with real data (see src/lib/publicSnapshot.tsx). The
+// browser loads the same slimmed snapshot before hydrating.
+const rawSnapshot = await loadSnapshot(root)
+const snapshot: PublicSnapshot | null = rawSnapshot ? slimForSnapshot(rawSnapshot) : null
+let snapshotMeta = ''
+if (snapshot) {
+  const snapshotUrl = writeSnapshot(toAbs('dist'), snapshot)
+  // Preload so the snapshot downloads alongside the JS bundle; main.tsx waits
+  // for it before hydrating.
+  snapshotMeta = `<meta name="${SNAPSHOT_META_NAME}" content="${snapshotUrl}" />\n` +
+    `<link rel="preload" href="${snapshotUrl}" as="fetch" crossorigin="anonymous" />`
+  bankSlugs = snapshot.banks.map(({ slug }) => slug)
+  categorySlugs = snapshot.categories.map(({ slug }) => slug)
+  offerSlugs = snapshot.offers.map(({ slug }) => slug)
+} else {
+  const liveRoutes = await loadPublicRouteSlugs(root)
+  if (liveRoutes?.banks) bankSlugs = liveRoutes.banks
+  if (liveRoutes?.categories) categorySlugs = liveRoutes.categories
+  if (liveRoutes?.offers) offerSlugs = liveRoutes.offers
+}
 
 const template = fs.readFileSync(toAbs('dist/index.html'), 'utf-8')
 
@@ -54,7 +72,7 @@ const routes = [
 // Dynamically import the SSR bundle built by `vite build --ssr`
 const ssrBundleUrl = pathToFileURL(toAbs('dist/.ssr/entry-server.js')).href
 const { render } = (await import(ssrBundleUrl)) as {
-  render: (url: string) => { html: string; headTags: string }
+  render: (url: string, data: PublicSnapshot | null) => { html: string; headTags: string }
 }
 
 /**
@@ -107,7 +125,7 @@ function removeHeadDuplicates(html: string): string {
 let count = 0
 
 for (const url of routes) {
-  const { html: appHtml, headTags } = render(url)
+  const { html: appHtml, headTags } = render(url, snapshot)
 
   // Stamp all injected head tags with data-rh="" so react-helmet-async
   // recognises them on client hydration and REPLACES them instead of
@@ -121,7 +139,7 @@ for (const url of routes) {
   // The cleanup handles any duplicates regardless of their origin
   // (template leftovers, vite-plugin-pwa injections, SSR double-renders, etc.)
   const rawHtml = template
-    .replace('<!--app-head-->', stampedHeadTags)
+    .replace('<!--app-head-->', `${stampedHeadTags}\n${snapshotMeta}`)
     .replace('<div id="root"><!--app-html--></div>', `<div id="root">${appHtml}</div>`)
 
   const fullHtml = removeHeadDuplicates(rawHtml)

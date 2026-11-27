@@ -8,6 +8,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadPublicRouteSlugs } from './public-routes'
 import { loadEnv } from 'vite'
+import { readWrittenSnapshot } from './snapshot'
+import { getOfferStats } from '../src/utils/offerStats'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -30,10 +32,20 @@ let offerSlugs = [
   'combank-5-cashback-cargills',
 ]
 
-const liveRoutes = await loadPublicRouteSlugs(root)
-if (liveRoutes?.banks) bankSlugs = liveRoutes.banks
-if (liveRoutes?.categories) categorySlugs = liveRoutes.categories
-if (liveRoutes?.offers) offerSlugs = liveRoutes.offers
+// Prefer the snapshot prerender.ts just wrote: the sitemap then lists exactly
+// the pages that were rendered, and only banks/categories that have offers.
+const snapshot = readWrittenSnapshot(toAbs('dist'))
+if (snapshot) {
+  const stats = getOfferStats(snapshot.offers)
+  bankSlugs = stats.topBanks.map(({ item }) => item.slug)
+  categorySlugs = stats.topCategories.map(({ item }) => item.slug)
+  offerSlugs = snapshot.offers.map(({ slug }) => slug)
+} else {
+  const liveRoutes = await loadPublicRouteSlugs(root)
+  if (liveRoutes?.banks) bankSlugs = liveRoutes.banks
+  if (liveRoutes?.categories) categorySlugs = liveRoutes.categories
+  if (liveRoutes?.offers) offerSlugs = liveRoutes.offers
+}
 
 const today = new Date().toISOString().split('T')[0]
 

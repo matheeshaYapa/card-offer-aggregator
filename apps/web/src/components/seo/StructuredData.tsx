@@ -121,3 +121,53 @@ export function OrganisationStructuredData() {
     </Helmet>
   )
 }
+
+// ── ItemList (offer listings on home / bank / category pages) ────────────────
+
+export function OfferListStructuredData({ name, url, offers }: { name: string; url: string; offers: Offer[] }) {
+  if (offers.length === 0) return null
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name,
+    url,
+    numberOfItems: offers.length,
+    itemListElement: offers.slice(0, 30).map((offer, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      url: canonicalUrl(`/offer/${offer.slug}`),
+      name: offer.title,
+    })),
+  }
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(schema)}</script>
+    </Helmet>
+  )
+}
+
+// ── FAQPage ──────────────────────────────────────────────────────────────────
+
+export interface FaqItem {
+  question: string
+  answer: string
+}
+
+/** FAQ rich-result markup. Only use for questions that are visible on the page. */
+export function FaqStructuredData({ items }: { items: FaqItem[] }) {
+  if (items.length === 0) return null
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map(({ question, answer }) => ({
+      '@type': 'Question',
+      name: question,
+      acceptedAnswer: { '@type': 'Answer', text: answer },
+    })),
+  }
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(schema)}</script>
+    </Helmet>
+  )
+}

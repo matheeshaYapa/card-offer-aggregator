@@ -1,11 +1,27 @@
 import type { Offer, OfferType } from '@/types'
 
-export const OFFER_TYPES: { id: OfferType; label: string }[] = [
-  { id: 'discount', label: 'Discounts' },
-  { id: 'cashback', label: 'Cashback' },
-  { id: 'installment', label: 'Installments' },
-  { id: 'bonus', label: 'Free items & extras' },
+export const OFFER_TYPES: { id: OfferType; label: string; short: string }[] = [
+  { id: 'discount', label: 'Discounts', short: 'Discount' },
+  { id: 'cashback', label: 'Cashback', short: 'Cashback' },
+  { id: 'installment', label: '0% installments', short: '0% installments' },
+  { id: 'bonus', label: 'Free extras', short: 'Free extra' },
 ]
+
+/**
+ * Rough size of the benefit for "Biggest saving" ordering: the largest
+ * percentage in the benefit text (cashback counts the same as a discount),
+ * a small score for installment plans and free extras, 0 when unknown.
+ */
+export function getBenefitValue(offer: Offer): number {
+  const text = offer.discount_text ?? ''
+  const percents = [...text.matchAll(/(\d{1,3}(?:\.\d+)?)\s*%/g)].map((m) => Number(m[1])).filter((n) => n > 0 && n <= 100)
+  if (percents.length) return Math.max(...percents)
+  if (/rs\.?|lkr/i.test(text)) return 5
+  const types = getOfferTypes(offer)
+  if (types.includes('bonus')) return 3
+  if (types.includes('installment')) return 1
+  return 0
+}
 
 export function getOfferTypes(offer: Offer): OfferType[] {
   const text = [offer.title, offer.discount_text, offer.description].filter(Boolean).join(' ')
@@ -78,7 +94,7 @@ export interface ParsedDiscount {
  */
 export function parseDiscount(discountText: string | null | undefined): ParsedDiscount {
   const text = (discountText ?? '').trim()
-  if (!text) return { big: 'Offer', small: '' }
+  if (!text) return { big: 'Special', small: 'offer' }
 
   // Buy-one-get-one variants.
   if (/\b(bogo|b1g1|buy\s*1\s*get\s*1|buy\s*one\s*get\s*one)\b/i.test(text)) {

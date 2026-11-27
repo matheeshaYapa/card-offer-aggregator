@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { AlertCircle, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import MetaTags from '@/components/seo/MetaTags'
-import { BreadcrumbStructuredData } from '@/components/seo/StructuredData'
-import OfferGrid from '@/components/offers/OfferGrid'
-import { getCategoryBySlug } from '@/lib/supabase/queries/categories'
-import { getOffersByCategorySlug } from '@/lib/supabase/queries/offers'
-import type { Category, Offer } from '@/types'
-import { canonicalUrl, SITE_URL } from '@/utils/seo'
+import { BreadcrumbStructuredData, OfferListStructuredData } from '@/components/seo/StructuredData'
+import FaqSection from '@/components/seo/FaqSection'
+import OfferBrowser from '@/components/offers/OfferBrowser'
+import { usePublicBrowseData } from '@/hooks/usePublicBrowseData'
+import { usePublicSnapshot } from '@/lib/publicSnapshot'
+import { getCategoryMeta } from '@/utils/categoryMeta'
+import { bankLabel, getOfferStats, listJoin } from '@/utils/offerStats'
+import { canonicalUrl, monthYear, SITE_URL } from '@/utils/seo'
 
 /** SEO copy per category slug. Natural language — no stuffing. */
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -36,130 +38,105 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 }
 
 export default function CategoryPage() {
-  const { categorySlug } = useParams<{ categorySlug: string }>()
-  const [category, setCategory] = useState<Category | null | undefined>(undefined)
-  const [offers, setOffers] = useState<Offer[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const loadPage = useCallback(async () => {
-    if (!categorySlug) return
-    setLoading(true)
-    setError(null)
-    setCategory(undefined)
-    setOffers([])
-
-    try {
-      const [loadedCategory, loadedOffers] = await Promise.all([
-        getCategoryBySlug(categorySlug),
-        getOffersByCategorySlug(categorySlug),
-      ])
-      setCategory(loadedCategory)
-      setOffers(loadedCategory ? loadedOffers : [])
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : 'Failed to load category offers',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [categorySlug])
-
-  useEffect(() => {
-    void loadPage()
-  }, [loadPage])
-
-  if (!loading && error && category === undefined) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <MetaTags
-          title="Category Offers Unavailable"
-          description="This category page could not be loaded."
-          noIndex
-        />
-        <h1 className="text-lg font-bold text-content mb-2">
-          Unable to load category offers
-        </h1>
-        <p className="text-sm text-muted mb-4">{error}</p>
-        <button
-          onClick={() => void loadPage()}
-          className="text-sm text-primary underline underline-offset-2"
-        >
-          Try again
-        </button>
-      </div>
-    )
-  }
+  const { categorySlug = '' } = useParams<{ categorySlug: string }>()
+  const snapshot = usePublicSnapshot()
+  const { offers, banks, categories, loading, error, reload } = usePublicBrowseData()
+  const category = categories.find(({ slug }) => slug === categorySlug)
+  const categoryOffers = useMemo(
+    () => offers.filter((offer) => offer.category?.slug === categorySlug),
+    [offers, categorySlug],
+  )
+  const stats = useMemo(() => getOfferStats(categoryOffers), [categoryOffers])
 
   if (!loading && !category) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <MetaTags title="Category Not Found" description="This category page could not be found." noIndex />
         <h1 className="text-lg font-bold text-content mb-2">Category not found</h1>
-        <Link to="/" className="text-sm text-primary underline underline-offset-2">
-          Browse all promotions
-        </Link>
+        <Link to="/" className="text-sm text-primary underline underline-offset-2">Browse all promotions</Link>
       </div>
     )
   }
 
   const catName = category?.name ?? 'Category'
+  const lower = catName.toLowerCase()
+  const count = categoryOffers.length
+  const month = monthYear(snapshot?.generatedAt ?? new Date())
   const pageCanonical = canonicalUrl(`/category/${categorySlug}`)
-  const description =
-    (categorySlug && CATEGORY_DESCRIPTIONS[categorySlug]) ??
-    `${catName} card promotions in Sri Lanka. Discover credit and debit card offers available at ${catName.toLowerCase()} merchants.`
+  const { icon: Icon, iconColor } = getCategoryMeta(categorySlug)
+  const intro =
+    CATEGORY_DESCRIPTIONS[categorySlug] ??
+    `${catName} card promotions in Sri Lanka. Discover credit and debit card offers available at ${lower} merchants.`
+  const topBanks = stats.topBanks.slice(0, 4)
+  const description = count
+    ? `${count} ${lower} card offers in Sri Lanka for ${month} from ${listJoin(topBanks.map(({ item }) => bankLabel(item)))}. ${intro}`.slice(0, 300)
+    : intro
+  const faq = count ? [
+    {
+      question: `Which banks have ${lower} card offers in Sri Lanka?`,
+      answer: `In ${month}, ${listJoin(stats.topBanks.map(({ item, count: n }) => `${bankLabel(item)} (${n})`))} have ${lower} promotions for their credit and debit cards.`,
+    },
+    {
+      question: `How many ${lower} card promotions are there right now?`,
+      answer: `There are ${count} live ${lower} offers` +
+        (stats.installmentCount ? `, including ${stats.installmentCount} 0% installment plans` : '') +
+        (stats.endingThisWeek ? `. ${stats.endingThisWeek} of them end within the next 7 days` : '') +
+        '. The list is refreshed daily from the banks\' own promotion pages.',
+    },
+  ] : []
 
   return (
     <>
       <MetaTags
-        title={`${catName} Card Offers Sri Lanka`}
+        title={`${catName} Card Offers in Sri Lanka${count ? `: ${count} Credit & Debit Card Promotions` : ''}`}
         description={description}
         canonical={pageCanonical}
+        noIndex={!loading && count === 0}
       />
       <BreadcrumbStructuredData
         items={[
           { name: 'Home', url: SITE_URL },
-          { name: `${catName} Offers`, url: pageCanonical },
+          { name: `${catName} offers`, url: pageCanonical },
         ]}
       />
+      <OfferListStructuredData name={`${catName} card offers in Sri Lanka`} url={pageCanonical} offers={categoryOffers} />
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-content transition-colors mb-5"
-        >
-          <ArrowLeft size={15} />
-          All promotions
-        </Link>
+      <div className="browse-shell">
+        <Link to="/" className="back-link"><ArrowLeft size={15} aria-hidden="true" /> All promotions</Link>
 
-        <div className="mb-3">
-          <h1 className="text-xl font-bold text-content">{catName} Promotions</h1>
-          {!loading && (
-            <p className="text-sm text-muted mt-0.5">
-              {offers.length} active offer{offers.length !== 1 ? 's' : ''}
+        <header className="landing-hero">
+          <span className={`landing-hero-icon ${iconColor}`}><Icon size={28} aria-hidden="true" /></span>
+          <div>
+            <h1>{catName} card offers in Sri Lanka</h1>
+            <p className="landing-hero-meta">
+              {loading ? 'Loading offers…' : `${count} live ${count === 1 ? 'offer' : 'offers'} from ${stats.bankCount} ${stats.bankCount === 1 ? 'bank' : 'banks'} · updated ${month}`}
             </p>
-          )}
-        </div>
-
-        {/* SEO description paragraph — rendered for both crawlers and visitors */}
-        {!loading && category && (
-          <p className="text-sm text-muted leading-relaxed mb-5 max-w-2xl">{description}</p>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-5">
-            <AlertCircle size={14} className="shrink-0" />
-            <span className="flex-1 min-w-0">{error}</span>
-            <button
-              onClick={() => void loadPage()}
-              className="text-xs font-medium underline underline-offset-2"
-            >
-              Retry
-            </button>
+            <p className="landing-hero-intro">{intro}</p>
+            {topBanks.length > 1 && (
+              <p className="landing-hero-links">
+                Top banks:{' '}
+                {topBanks.map(({ item, count: n }, index) => (
+                  <span key={item.slug}>
+                    {index > 0 && ' · '}
+                    <Link to={`/bank/${item.slug}`}>{bankLabel(item)} ({n})</Link>
+                  </span>
+                ))}
+              </p>
+            )}
           </div>
-        )}
+        </header>
 
-        <OfferGrid offers={offers} loading={loading} />
+        <OfferBrowser
+          offers={offers}
+          banks={banks}
+          categories={categories}
+          loading={loading}
+          error={error}
+          reload={() => void reload()}
+          lockedCategory={categorySlug}
+        />
+
+        <FaqSection title={`${catName} card offers: common questions`} items={faq} />
       </div>
     </>
   )

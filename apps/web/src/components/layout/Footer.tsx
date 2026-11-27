@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { CreditCard } from 'lucide-react'
+import { usePublicSnapshot } from '@/lib/publicSnapshot'
+import { getOfferStats, bankLabel } from '@/utils/offerStats'
 
 /**
  * Footer link sets. Hardcoded (rather than fetched) so the internal links are
@@ -24,6 +26,17 @@ const FOOTER_CATEGORIES: { slug: string; name: string }[] = [
 ]
 
 export default function Footer() {
+  // Prerendered pages carry the snapshot, so every bank and category with
+  // live offers is linked from every page. Without it, fall back to the seeds.
+  const snapshot = usePublicSnapshot()
+  const stats = snapshot ? getOfferStats(snapshot.offers) : null
+  const footerBanks = stats?.topBanks.length
+    ? stats.topBanks.map(({ item }) => ({ slug: item.slug, name: bankLabel(item) }))
+    : FOOTER_BANKS
+  const footerCategories = stats?.topCategories.length
+    ? stats.topCategories.map(({ item }) => ({ slug: item.slug, name: item.name }))
+    : FOOTER_CATEGORIES
+
   return (
     <footer className="hidden md:block border-t border-border bg-white mt-auto">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -48,7 +61,7 @@ export default function Footer() {
           <nav aria-label="Browse by bank">
             <h2 className="text-xs font-semibold text-content mb-2.5">Banks</h2>
             <ul className="space-y-1.5">
-              {FOOTER_BANKS.map((bank) => (
+              {footerBanks.map((bank) => (
                 <li key={bank.slug}>
                   <Link
                     to={`/bank/${bank.slug}`}
@@ -65,7 +78,7 @@ export default function Footer() {
           <nav aria-label="Browse by category">
             <h2 className="text-xs font-semibold text-content mb-2.5">Categories</h2>
             <ul className="space-y-1.5">
-              {FOOTER_CATEGORIES.map((cat) => (
+              {footerCategories.map((cat) => (
                 <li key={cat.slug}>
                   <Link
                     to={`/category/${cat.slug}`}

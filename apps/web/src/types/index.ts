@@ -165,6 +165,8 @@ export interface SelectedCard {
   slug: string
 }
 
+export type SortOrder = 'recommended' | 'ending' | 'value' | 'newest'
+
 export interface FilterState {
   search: string
   bankSlug: string | null
@@ -173,4 +175,8 @@ export interface FilterState {
   cardType: CardType | null
   network: CardNetwork | null
   myCardsOnly: boolean
+  /** Only offers ending within the next 7 days. */
+  endingSoon: boolean
+  /** Result order; 'recommended' keeps the featured/newest default. */
+  sort: SortOrder
 }

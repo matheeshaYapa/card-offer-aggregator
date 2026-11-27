@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
-import { CalendarDays, Tag } from 'lucide-react'
+import { CalendarDays, Hourglass, Tag } from 'lucide-react'
 import type { Offer } from '@/types'
 import { getDaysRemaining, getExpiryLabel } from '@/utils/dateUtils'
 import { getBankTheme } from '@/utils/bankTheme'
 import { getOfferDisplay, getOfferTypes, OFFER_TYPES, parseDiscount } from '@/utils/offerDisplay'
 import { getOfferBanks } from '@/utils/offerMatching'
 import { formatNetworkName } from '@/utils/normalization'
+import { OFFER_TYPE_ICONS } from './OfferToolbar'
 
 interface OfferCardProps {
   offer: Offer
@@ -23,7 +24,9 @@ export default function OfferCard({ offer }: OfferCardProps) {
   const theme = getBankTheme(uniqueBanks[0]?.slug)
   const { headline, detail } = getOfferDisplay(offer)
   const { big, small } = parseDiscount(offer.discount_text)
-  const typeLabel = OFFER_TYPES.find(({ id }) => id === getOfferTypes(offer)[0])?.label
+  const primaryType = getOfferTypes(offer)[0]
+  const typeLabel = OFFER_TYPES.find(({ id }) => id === primaryType)?.short
+  const TypeIcon = primaryType ? OFFER_TYPE_ICONS[primaryType] : Tag
 
   const daysLeft = getDaysRemaining(offer.valid_to)
   const urgentExpiry = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
@@ -34,18 +37,25 @@ export default function OfferCard({ offer }: OfferCardProps) {
       state={{ browsePath: pathname + search }}
       className="group flex flex-col min-h-[240px] bg-white rounded-2xl border border-border overflow-hidden transition-shadow hover:border-primary/45 hover:shadow-[0_8px_22px_rgba(18,63,51,0.08)]"
     >
-      <div className={`flex items-start gap-3 min-w-0 px-4 py-4 ${theme.tileBg} ${theme.tileText}`}>
-        <div className="grid place-items-center shrink-0 bg-white/70 size-9 rounded-lg">
-          <Tag size={17} aria-hidden="true" />
+      <div className={`relative flex items-start gap-3 min-w-0 px-4 py-4 ${theme.tileBg} ${theme.tileText}`}>
+        <div className="grid place-items-center shrink-0 bg-white/70 size-10 rounded-xl" title={typeLabel}>
+          <TypeIcon size={19} aria-hidden="true" />
         </div>
         <div className="min-w-0 self-center">
-          <p className="text-[1.35rem] font-extrabold tracking-tight leading-tight break-words">{big}</p>
-          {small && <p className="text-[.82rem] font-semibold leading-snug break-words">{small}</p>}
+          <p className="text-[1.45rem] font-extrabold tracking-tight leading-tight break-words">{big}</p>
+          {small && <p className="text-[.82rem] font-semibold leading-snug break-words line-clamp-2">{small}</p>}
         </div>
+        {urgentExpiry && (
+          <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[.7rem] font-bold text-amber-700 shadow-sm">
+            <Hourglass size={11} aria-hidden="true" /> Last few days
+          </span>
+        )}
       </div>
       <div className="flex flex-col flex-1 p-4">
         {(category || typeLabel) && (
-          <p className="mb-1.5 text-[.82rem] font-semibold text-muted">{category?.name ?? typeLabel}</p>
+          <p className="mb-1.5 text-[.8rem] font-semibold text-muted">
+            {[category?.name, typeLabel].filter(Boolean).join(' · ')}
+          </p>
         )}
         <h3 className="font-bold text-content text-base leading-snug [text-wrap:pretty] group-hover:text-primary transition-colors line-clamp-2">
           {headline}

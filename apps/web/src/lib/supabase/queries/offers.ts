@@ -3,23 +3,7 @@ import type { Offer } from '@/types'
 import { isOfferMatchingBankSlug } from '@/utils/offerMatching'
 import { sriLankaDate } from '@/utils/dateUtils'
 import { getCategoryBySlug } from './categories'
-
-const OFFER_SELECT = `
-  *,
-  merchant:merchants(*),
-  category:categories(*),
-  offer_bank_rules(
-    *,
-    bank:banks(*)
-  ),
-  offer_cards(
-    *,
-    card:cards(
-      *,
-      bank:banks(*)
-    )
-  )
-`
+import { OFFER_SELECT } from '../offerSelect'
 
 function publicOffersQuery(today: string) {
   return supabase

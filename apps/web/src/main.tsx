@@ -3,26 +3,49 @@ import { hydrateRoot, createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import App from './app/App'
+import { PublicSnapshotProvider, SNAPSHOT_META_NAME, type PublicSnapshot } from './lib/publicSnapshot'
 import './styles/global.css'
 
 const rootElement = document.getElementById('root')!
 
-const app = (
-  <StrictMode>
-    <HelmetProvider>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </HelmetProvider>
-  </StrictMode>
-)
-
-// Only hydrate when the root already contains SSR-rendered elements.
-// In dev, index.html still includes the `<!--app-html-->` placeholder comment,
-// which should not be treated as prerendered markup.
-// Static output is rendered for the canonical path without query parameters.
-if (rootElement.firstElementChild && !window.location.search) {
-  hydrateRoot(rootElement, app)
-} else {
-  createRoot(rootElement).render(app)
+/** Load the build-time data snapshot this page was prerendered with, if any. */
+async function loadSnapshot(): Promise<PublicSnapshot | null> {
+  const url = document.querySelector<HTMLMetaElement>(`meta[name="${SNAPSHOT_META_NAME}"]`)?.content
+  if (!url) return null
+  try {
+    const response = await fetch(url)
+    return response.ok ? ((await response.json()) as PublicSnapshot) : null
+  } catch {
+    return null
+  }
 }
+
+async function start() {
+  const snapshot = await loadSnapshot()
+  const app = (
+    <StrictMode>
+      <HelmetProvider>
+        <PublicSnapshotProvider snapshot={snapshot}>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </PublicSnapshotProvider>
+      </HelmetProvider>
+    </StrictMode>
+  )
+
+  // Hydrate only markup that was prerendered for exactly this URL with the
+  // snapshot we just loaded. Everything else is rendered fresh:
+  //  - dev, where #root holds only the <!--app-html--> placeholder;
+  //  - URLs with a query string (static HTML is for the bare path);
+  //  - edge-rendered offer pages, marked data-static, whose markup is a
+  //    plain crawler fallback rather than React output.
+  const prerendered = rootElement.firstElementChild && !rootElement.hasAttribute('data-static')
+  if (prerendered && snapshot && !window.location.search) {
+    hydrateRoot(rootElement, app)
+  } else {
+    createRoot(rootElement).render(app)
+  }
+}
+
+void start()

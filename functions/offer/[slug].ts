@@ -10,11 +10,12 @@
  * What this does (on every request, no rebuild needed):
  *   1. Look up the offer in Supabase (anon key + RLS → only approved, active,
  *      non-expired offers are visible).
- *   2. If found → serve the app shell (index.html, so hashed asset tags stay
- *      correct) with the <head> rewritten to the offer's real title, meta,
- *      canonical (self-referential) and JSON-LD. The #root is emptied so the
- *      client renders the offer cleanly (no homepage-flash / hydration
- *      mismatch — main.tsx uses createRoot when #root is empty).
+ *   2. If found and the build prerendered it → serve that page unchanged
+ *      (full content, head tags, data snapshot).
+ *      If found but newer than the build → serve the app shell (index.html,
+ *      so hashed asset tags stay correct) with the <head> rewritten to the
+ *      offer's real title, meta, canonical and JSON-LD, and #root replaced by
+ *      a plain summary marked data-static (main.tsx renders fresh over it).
  *   3. If not found/expired → return HTTP 404 with a noindex head, so Google
  *      drops the URL instead of clustering it under the homepage.
  *
@@ -64,10 +65,29 @@ export const onRequestGet = async (context: RequestContext): Promise<Response> =
   const siteUrl = (env.VITE_APP_BASE_URL || new URL(request.url).origin).replace(/\/+$/, '')
   const canonical = `${siteUrl}/offer/${slug}`
 
+  const offer = await fetchOffer(env, slug)
+
+  // Offers that existed at build time have a fully prerendered page (content,
+  // head tags and the data snapshot it hydrates from). Serve it as-is once
+  // Supabase confirms the offer is still live. Anything else falls through to
+  // the shell below — including the SPA fallback, which carries the homepage
+  // canonical rather than this offer's.
+  if (offer) {
+    const page = await env.ASSETS.fetch(new URL(`/offer/${encodeURIComponent(slug)}`, request.url))
+    if (page.ok) {
+      const html = await page.text()
+      const canonicalTag = html.match(/<link[^>]*rel="canonical"[^>]*>/)?.[0] ?? ''
+      if (canonicalTag.includes(`/offer/${slug}"`)) {
+        return new Response(html, {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=0, s-maxage=600' },
+        })
+      }
+    }
+  }
+
   // App shell — keeps the deployed build's hashed <script>/<link> tags.
   const shell = await env.ASSETS.fetch(new URL('/index.html', request.url))
-
-  const offer = await fetchOffer(env, slug)
 
   if (!offer) {
     const head = [
@@ -77,7 +97,7 @@ export const onRequestGet = async (context: RequestContext): Promise<Response> =
     return rewrite(shell, head, { status: 404 })
   }
 
-  return rewrite(shell, buildHead(offer, canonical, siteUrl), { status: 200, cache: true })
+  return rewrite(shell, buildHead(offer, canonical, siteUrl), { status: 200, cache: true, body: buildBody(offer) })
 }
 
 // ── Supabase lookup ─────────────────────────────────────────────────────────
@@ -151,12 +171,35 @@ function buildHead(offer: OfferRow, canonical: string, siteUrl: string): string 
   ].join('')
 }
 
+/**
+ * Plain, crawler-readable summary for offers added after the last build. The
+ * #root is marked data-static so the client renders fresh instead of trying
+ * to hydrate it (see apps/web/src/main.tsx).
+ */
+function buildBody(offer: OfferRow): string {
+  const bank = offer.offer_bank_rules?.find((r) => r.bank)?.bank
+  const parts = [
+    `<main style="max-width:42rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">`,
+    `<p><a href="/">CardPromo LK</a> › Card offers</p>`,
+    `<h1>${esc(offer.title?.trim() || 'Card offer')}</h1>`,
+    offer.discount_text ? `<p><strong>${esc(offer.discount_text)}</strong></p>` : '',
+    offer.merchant?.name ? `<p>Merchant: ${esc(offer.merchant.name)}</p>` : '',
+    bank ? `<p>Bank: ${esc(bank.name)}</p>` : '',
+    offer.category?.name ? `<p>Category: ${esc(offer.category.name)}</p>` : '',
+    offer.valid_to ? `<p>Valid until ${esc(offer.valid_to)}</p>` : '',
+    offer.description ? `<p>${esc(offer.description)}</p>` : '',
+    `<p><a href="/offers">Browse all card offers in Sri Lanka</a></p>`,
+    `</main>`,
+  ]
+  return parts.join('')
+}
+
 // ── HTMLRewriter plumbing ───────────────────────────────────────────────────
 
 function rewrite(
   shell: Response,
   headHtml: string,
-  opts: { status: number; cache?: boolean },
+  opts: { status: number; cache?: boolean; body?: string },
 ): Response {
   const headers = new Headers({ 'content-type': 'text/html; charset=utf-8' })
   headers.set(
@@ -178,8 +221,8 @@ function rewrite(
     .on('script[type="application/ld+json"]', new Remove())
     // Inject the offer's tags at the end of <head>.
     .on('head', new AppendHead(headHtml))
-    // Empty the prerendered homepage body so the client renders the offer cleanly.
-    .on('#root', new EmptyRoot())
+    // Replace the prerendered homepage body with the offer summary (or nothing).
+    .on('#root', new StaticRoot(opts.body ?? ''))
     .transform(base)
 }
 
@@ -194,9 +237,14 @@ class AppendHead {
     el.append(this.html, { html: true })
   }
 }
-class EmptyRoot {
-  element(el: { setInnerContent: (html: string, opts: { html: boolean }) => void }) {
-    el.setInnerContent('', { html: true })
+class StaticRoot {
+  constructor(private html: string) {}
+  element(el: {
+    setInnerContent: (html: string, opts: { html: boolean }) => void
+    setAttribute: (name: string, value: string) => void
+  }) {
+    el.setInnerContent(this.html, { html: true })
+    el.setAttribute('data-static', '')
   }
 }
 

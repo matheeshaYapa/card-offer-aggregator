@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -21,24 +21,51 @@ import { canonicalUrl, SITE_URL } from '@/utils/seo'
 import { getBankTheme } from '@/utils/bankTheme'
 import { getOfferDisplay, parseDiscount } from '@/utils/offerDisplay'
 import { getOfferBanks } from '@/utils/offerMatching'
+import { usePublicSnapshot } from '@/lib/publicSnapshot'
+import { usePublicBrowseData } from '@/hooks/usePublicBrowseData'
+import OfferCard from '@/components/offers/OfferCard'
+
+/** Up to `limit` other offers: same merchant first, then same category and bank, then same category. */
+function relatedOffers(offer: Offer, all: Offer[], limit = 6): Offer[] {
+  const bankSlugs = new Set(getOfferBanks(offer).map(({ slug }) => slug))
+  const score = (other: Offer) =>
+    (offer.merchant_id && other.merchant_id === offer.merchant_id ? 4 : 0) +
+    (offer.category && other.category?.slug === offer.category.slug ? 2 : 0) +
+    (getOfferBanks(other).some(({ slug }) => bankSlugs.has(slug)) ? 1 : 0)
+  return all
+    .filter((other) => other.id !== offer.id)
+    .map((other) => ({ other, score: score(other) }))
+    .filter(({ score }) => score >= 2)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ other }) => other)
+}
 
 export default function OfferDetailsPage() {
   const { offerSlug } = useParams<{ offerSlug: string }>()
   const { state } = useLocation()
   const browsePath = typeof state?.browsePath === 'string' && /^\/(?!\/)/.test(state.browsePath) ? state.browsePath : '/'
-  const [offer, setOffer] = useState<Offer | null | undefined>(undefined)
+  // Start from the build-time snapshot (server HTML has the full offer), then
+  // confirm against Supabase — that also catches offers that ended since.
+  const snapshot = usePublicSnapshot()
+  const { offers: allOffers } = usePublicBrowseData()
+  const snapshotOffer = snapshot?.offers.find(({ slug }) => slug === offerSlug)
+  const [loaded, setLoaded] = useState<{ slug: string | undefined; offer: Offer | null }>()
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const offer: Offer | null | undefined =
+    loaded && loaded.slug === offerSlug ? loaded.offer : (snapshotOffer ?? undefined)
 
   useEffect(() => {
     if (!offerSlug) return
     let current = true
-    setOffer(undefined)
     setFetchError(null)
     getOfferBySlug(offerSlug)
-      .then((loaded) => { if (current) setOffer(loaded) })
+      .then((result) => { if (current) setLoaded({ slug: offerSlug, offer: result }) })
       .catch((error) => { if (current) setFetchError(error instanceof Error ? error.message : 'Failed to load') })
     return () => { current = false }
   }, [offerSlug])
+
+  const related = useMemo(() => (offer ? relatedOffers(offer, allOffers) : []), [offer, allOffers])
 
   if (offer === undefined && !fetchError) {
     return (
@@ -50,7 +77,7 @@ export default function OfferDetailsPage() {
 
   const notFound = !offer
 
-  if (notFound || fetchError) {
+  if (notFound || (fetchError && !offer)) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <MetaTags title="Offer Not Found" description="This promotion could not be found." noIndex />
@@ -252,6 +279,17 @@ export default function OfferDetailsPage() {
             </div>
           )}
         </div>
+
+        {related.length > 0 && (
+          <section className="mt-8" aria-labelledby="related-heading">
+            <h2 id="related-heading" className="text-lg font-extrabold tracking-tight mb-3">
+              Similar offers{offer!.category ? ` in ${offer!.category.name.toLowerCase()}` : ''}
+            </h2>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {related.map((item) => <li key={item.id}><OfferCard offer={item} /></li>)}
+            </ul>
+          </section>
+        )}
 
         <div className="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertCircle size={13} className="text-amber-600 mt-0.5 shrink-0" />

@@ -1,7 +1,6 @@
 import { useId, useState } from 'react'
 import { ChevronDown, SlidersHorizontal } from 'lucide-react'
 import type { Bank, FilterState } from '@/types'
-import { OFFER_TYPES } from '@/utils/offerDisplay'
 
 interface OfferFiltersProps {
   filters: FilterState
@@ -9,10 +8,12 @@ interface OfferFiltersProps {
   onReset: () => void
   activeFilterCount: number
   banks: Bank[]
+  /** Hide the bank picker (bank pages lock the bank). */
+  hideBank?: boolean
 }
 
 export default function OfferFilters({
-  filters, onChange, onReset, activeFilterCount, banks,
+  filters, onChange, onReset, activeFilterCount, banks, hideBank = false,
 }: OfferFiltersProps) {
   const [expanded, setExpanded] = useState(false)
   const fieldsId = useId()
@@ -31,20 +32,13 @@ export default function OfferFilters({
         <ChevronDown size={18} className={`filter-chevron ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       <div className={`browse-filter-fields ${expanded ? '' : 'browse-filter-fields-collapsed'}`} id={fieldsId}>
-        <label>
+        {!hideBank && <label>
           Bank
           <select value={filters.bankSlug ?? ''} onChange={(event) => onChange('bankSlug', event.target.value || null)}>
             <option value="">All banks</option>
             {banks.map((bank) => <option key={bank.id} value={bank.slug}>{bank.name}</option>)}
           </select>
-        </label>
-        <label>
-          Offer type
-          <select value={filters.offerType ?? ''} onChange={(event) => onChange('offerType', OFFER_TYPES.find(({ id }) => id === event.target.value)?.id ?? null)}>
-            <option value="">All offer types</option>
-            {OFFER_TYPES.map(({ id, label }) => <option key={id} value={id}>{label}</option>)}
-          </select>
-        </label>
+        </label>}
         <label>
           Card type
           <select value={filters.cardType ?? ''} onChange={(event) => onChange('cardType', event.target.value as FilterState['cardType'] || null)}>

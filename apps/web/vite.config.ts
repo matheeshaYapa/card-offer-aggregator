@@ -62,6 +62,17 @@ export default defineConfig(({ isSsrBuild }) => ({
           globPatterns: ['**/*.{js,css,html,svg,png,jpg,webp,woff2}'],
           cleanupOutdatedCaches: true,
           runtimeCaching: [
+            // Build-time data snapshot (scripts/snapshot.ts). File names are
+            // content-hashed, so a cached copy never goes stale.
+            {
+              urlPattern: /\/data\/public-[0-9a-f]+\.json$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'public-snapshot',
+                expiration: { maxEntries: 3, maxAgeSeconds: 60 * 60 * 24 * 14 },
+                cacheableResponse: { statuses: [200] },
+              },
+            },
             // Cache Supabase API responses — serve stale while revalidating
             {
               urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,

@@ -20,3 +20,10 @@ export function canonicalUrl(pathname: string): string {
 export function ogImageUrl(filename: string = 'og-cover.png'): string {
   return `${SITE_URL}/${filename}`
 }
+
+const monthYearFormat = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'Asia/Colombo' })
+
+/** "November 2026" in Sri Lanka time — for titles and copy that show freshness. */
+export function monthYear(date: Date | string = new Date()): string {
+  return monthYearFormat.format(typeof date === 'string' ? new Date(date) : date)
+}
