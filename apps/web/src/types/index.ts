@@ -110,6 +110,13 @@ export interface ScrapedOfferCandidate {
   confidence_score: number | null
   candidate_hash: string | null
   status: CandidateStatus
+  // Added by migration 010 (null on older rows)
+  parser_score?: number | null
+  quality_flags?: string[] | null
+  detected_category_id?: string | null
+  category_confidence?: number | null
+  review_source?: 'auto' | 'admin' | null
+  detected_category?: { id: string; name: string; slug: string } | null
   created_at: string
   offer_id?: string | null
   // Joined relation (populated when queried with scrape_sources join)

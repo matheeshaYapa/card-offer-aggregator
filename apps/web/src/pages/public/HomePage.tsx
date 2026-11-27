@@ -21,8 +21,12 @@ interface HomePageProps {
 export default function HomePage({ routeMode = 'home' }: HomePageProps) {
   const { selectedCards, removeCard } = useSelectedCards()
   const { offers, banks, categories, loading, error, reload } = usePublicBrowseData()
-  const { filters, setFilter, resetFilters, filteredOffers, activeFilterCount } =
+  const { filters, setFilter, resetFilters, filteredOffers, activeFilterCount, categoryCounts, totalBeforeCategory } =
     useOfferFilters(offers, selectedCards)
+  // Hide empty categories, but keep the selected one visible so it can be cleared.
+  const visibleCategories = categories.filter((category) =>
+    (categoryCounts[category.slug] ?? 0) > 0 || filters.categorySlug === category.slug,
+  )
 
   const offerCountBySlug = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -105,8 +109,10 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
 
             <div className="min-w-0">
               <div className="browse-categories" role="group" aria-label="Offer category">
-                <button type="button" aria-pressed={!filters.categorySlug} onClick={() => setFilter('categorySlug', null)}>All categories</button>
-                {categories.map((category) => (
+                <button type="button" aria-pressed={!filters.categorySlug} onClick={() => setFilter('categorySlug', null)}>
+                  All categories{!loading && <span className="browse-category-count">{totalBeforeCategory}</span>}
+                </button>
+                {visibleCategories.map((category) => (
                   <button
                     key={category.id}
                     type="button"
@@ -114,6 +120,7 @@ export default function HomePage({ routeMode = 'home' }: HomePageProps) {
                     onClick={() => setFilter('categorySlug', filters.categorySlug === category.slug ? null : category.slug)}
                   >
                     {category.name}
+                    {!loading && <span className="browse-category-count">{categoryCounts[category.slug] ?? 0}</span>}
                   </button>
                 ))}
               </div>

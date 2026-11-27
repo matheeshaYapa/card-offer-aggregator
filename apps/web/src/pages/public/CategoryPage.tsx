@@ -27,6 +27,12 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
     'Online shopping offers for Sri Lankan credit and debit cards. Get cashback, discounts, and free delivery at popular e-commerce platforms.',
   healthcare:
     'Healthcare and pharmacy discounts for Sri Lankan cardholders. Use your bank card to save at hospitals, pharmacies, and medical centres.',
+  automotive:
+    'Fuel, tyre, servicing and spare-part offers for Sri Lankan credit and debit cards, including 0% installment plans at auto care centres.',
+  education:
+    'Pay course and exam fees in 0% installments with Sri Lankan credit cards at campuses, institutes and professional bodies.',
+  services:
+    'Cashback and discounts on bill payments, couriers, rides and everyday services with Sri Lankan bank cards and payment apps.',
 }
 
 export default function CategoryPage() {

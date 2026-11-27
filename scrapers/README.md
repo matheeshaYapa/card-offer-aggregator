@@ -153,6 +153,44 @@ The `candidate_hash` column has a `UNIQUE` constraint in PostgreSQL. Re-running 
 
 ---
 
+## Categories and confidence
+
+After a source is parsed, `src/confidence.py` re-checks every candidate as a
+batch before anything is saved:
+
+1. **Category**: `src/extractors/category_extractor.py` assigns a category slug
+   from the bank's own label (`Category: X` in `raw_text`) or, failing that,
+   weighted keywords and known merchants in `config/category_rules.json`.
+   Tune that file (not the code) when an offer lands in the wrong category,
+   and add a case to `tests/test_category_extractor.py`.
+2. **Confidence**: the parser's own score (`parser_score`, how complete the
+   extraction was) is multiplied down for each failed check. The checks are:
+   placeholder or page-heading titles, a benefit that contradicts the bank's
+   text or has no value, end dates more than ~18 months away, one title shared
+   by several offers, run-together names and missing merchant or category.
+   Boilerplate descriptions shared across a page are dropped.
+3. **Hard checks** block auto-publishing whatever the score. If most of a
+   source's offers fail hard checks, the parser has probably broken (the bank
+   changed its page), so the whole batch is held and the run marked `partial`.
+   A run whose offer count halves since the last success is also marked `partial`.
+
+Every flag is stored on the candidate (`quality_flags`) and shown in the admin
+review screen.
+
+```bash
+python main.py --audit --bank sampath-bank --verbose   # every offer with score, category, blockers
+python -m pytest tests                                 # classifier + scorer tests
+python backfill_categories.py [--apply]                # categorise existing offers (dry run by default)
+python calibrate_confidence.py                         # score vs. admin approve/reject decisions
+```
+
+Run `calibrate_confidence.py` after a few weeks of reviews: it shows the
+precision auto-publishing would have at each threshold and which flags predict
+rejection, so `AUTO_PUBLISH_THRESHOLD` (`src/scrape_quality.py`) and `PENALTIES`
+(`src/confidence.py`) can be set from data rather than guesswork.
+
+---
+
 ## Architecture
 
 ### Scraper map (`main.py`)
@@ -176,8 +214,10 @@ SCRAPER_MAP = {
 ### Candidate flow
 
 ```
-Scraper → scraped_offer_candidates (status = pending)
-              ↓ Admin reviews at /admin/scraped-candidates
+Scraper → assess_batch (category + confidence + quality flags)
+        → scraped_offer_candidates (status = pending)
+              ├─ score ≥ 0.80 and no hard flags → publish_scraped_candidate() → live offer (with category)
+              ↓ otherwise: Admin reviews at /admin/scraped-candidates
           Click "Approve as Offer"
               ↓ ApproveAsOfferModal (pre-filled form)
           New offer created (status = pending_review)

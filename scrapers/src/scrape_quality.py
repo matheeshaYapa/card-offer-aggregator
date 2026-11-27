@@ -2,6 +2,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
+from src.confidence import hard_flags
 from src.models.scraped_offer import ScrapedOffer
 
 AUTO_PUBLISH_THRESHOLD = 0.80
@@ -34,9 +35,14 @@ def local_today():
 
 
 def auto_publish_blockers(offer: ScrapedOffer, source: dict) -> list[str]:
+    """
+    Reasons an offer must go to manual review. `offer.confidence_score` is the
+    evidence-based score from src/confidence.py, so run assess_batch() first.
+    """
     blockers = []
     if offer.confidence_score < AUTO_PUBLISH_THRESHOLD:
-        blockers.append("low parser score")
+        blockers.append("low confidence")
+    blockers.extend(f"check failed: {flag}" for flag in hard_flags(offer.quality_flags))
     if not offer.title or _BAD_TITLE.search(offer.title):
         blockers.append("missing or malformed title")
     if not offer.detected_discount or not offer.detected_discount.strip():

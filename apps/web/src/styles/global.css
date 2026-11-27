@@ -271,6 +271,8 @@ html {
 .browse-categories button { flex: none; min-height: 2.65rem; padding-inline: .9rem; border-radius: 1.6rem; border: 1px solid var(--color-border); background: #fff; font-size: .875rem; font-weight: 650; }
 .browse-categories button:hover { border-color: var(--color-primary); }
 .browse-categories button[aria-pressed="true"] { border-color: #183f37; background: #183f37; color: #fff; }
+.browse-category-count { margin-left: .45rem; padding: .05rem .45rem; border-radius: 1rem; background: #eef2f1; color: var(--color-muted); font-size: .75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.browse-categories button[aria-pressed="true"] .browse-category-count { background: rgb(255 255 255 / .18); color: #fff; }
 .browse-feedback { display: grid; justify-items: center; gap: .7rem; padding: 2.5rem 1rem; background: #fff; border: 1px solid var(--color-border); border-radius: 1rem; text-align: center; }
 .browse-feedback > svg { color: var(--color-primary); }
 .browse-feedback h3 { font-size: 1.15rem; font-weight: 750; }

@@ -17,6 +17,8 @@ import {
   bulkUpdateCandidateStatus,
   bulkApproveAsOffers,
   bulkPublishHighConfidence,
+  HARD_QUALITY_FLAGS,
+  QUALITY_FLAG_LABELS,
 } from '@/lib/supabase/queries/candidates'
 import { getBanks } from '@/lib/supabase/queries/banks'
 import { formatDate } from '@/utils/dateUtils'
@@ -133,6 +135,9 @@ function CandidateDetailModal({
           {candidate.confidence_score !== null && (
             <span className="text-xs text-muted">
               {Math.round(candidate.confidence_score * 100)}% confidence
+              {candidate.parser_score != null && candidate.parser_score !== candidate.confidence_score && (
+                <> (parser {Math.round(candidate.parser_score * 100)}%)</>
+              )}
             </span>
           )}
           {candidate.scrape_source && (
@@ -141,6 +146,22 @@ function CandidateDetailModal({
             </span>
           )}
         </div>
+
+        {(candidate.quality_flags?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1">Why this needs review</p>
+            <ul className="flex flex-wrap gap-1.5">
+              {candidate.quality_flags!.map((flag) => (
+                <li
+                  key={flag}
+                  className={`text-xs px-2 py-1 rounded-lg ${HARD_QUALITY_FLAGS.has(flag) ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'}`}
+                >
+                  {QUALITY_FLAG_LABELS[flag] ?? flag}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {candidate.title && (
           <div>
@@ -155,6 +176,12 @@ function CandidateDetailModal({
             { label: 'Discount',   value: candidate.detected_discount },
             { label: 'Valid From', value: candidate.detected_valid_from ? formatDate(candidate.detected_valid_from) : null },
             { label: 'Valid To',   value: candidate.detected_valid_to   ? formatDate(candidate.detected_valid_to)   : null },
+            {
+              label: 'Category',
+              value: candidate.detected_category
+                ? `${candidate.detected_category.name}${candidate.category_confidence != null ? ` (${Math.round(candidate.category_confidence * 100)}%)` : ''}`
+                : null,
+            },
           ].map(({ label, value }) => (
             <div key={label} className="bg-slate-50 rounded-xl px-3 py-2">
               <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">{label}</p>
@@ -734,7 +761,12 @@ export default function AdminScrapedCandidatesPage() {
                         {c.detected_valid_to ? formatDate(c.detected_valid_to) : '—'}
                       </td>
                       <td className="admin-td text-muted text-xs">
-                        {c.confidence_score !== null ? `${Math.round(c.confidence_score * 100)}%` : '—'}
+                        <span title={(c.quality_flags ?? []).map((f) => QUALITY_FLAG_LABELS[f] ?? f).join('\n') || undefined}>
+                          {c.confidence_score !== null ? `${Math.round(c.confidence_score * 100)}%` : '—'}
+                          {(c.quality_flags ?? []).some((f) => HARD_QUALITY_FLAGS.has(f)) && (
+                            <span className="ml-1 text-red-600" aria-label="Failed a hard check">●</span>
+                          )}
+                        </span>
                       </td>
                       <td className="admin-td text-muted text-xs max-w-[100px]">
                         <p className="line-clamp-1">{c.scrape_source?.name ?? '—'}</p>
@@ -817,7 +849,7 @@ export default function AdminScrapedCandidatesPage() {
         }
         message={
           confirmBulk?.action === 'published'
-            ? `This will immediately publish offers from the selected candidates that score 80% or higher confidence — they'll go live on the public site right away. Lower-confidence candidates in your selection are skipped and left pending.`
+            ? `This will immediately publish offers from the selected candidates that score 80% or higher confidence and pass every hard check — they'll go live on the public site right away. Lower-confidence candidates in your selection are skipped and left pending.`
             : confirmBulk?.action === 'approved'
             ? `This will create ${selectedCount} new offers in "Pending Review" status — nothing is published yet. You can add bank rules, merchant links, and publish each offer from the Offers page.`
             : confirmBulk?.action === 'rejected'

@@ -40,9 +40,15 @@ from src.scrapers.sampath_scraper import SampathScraper
 from src.scrapers.seylan_scraper import SeylanScraper
 from src.utils.logger import get_logger
 from src.scrape_quality import auto_publish_blockers, local_today
+from src.confidence import assess_batch
 
 load_dotenv()
 logger = get_logger("main")
+
+# A source that suddenly returns far fewer offers than last time has usually
+# changed its page layout; its run is marked partial so someone looks at it.
+DRIFT_MIN_PREVIOUS = 10
+DRIFT_DROP_SHARE = 0.5
 
 # Map bank_slug → scraper class
 SCRAPER_MAP: dict[str, type] = {
@@ -78,30 +84,59 @@ def get_scraper(source: dict):
     return cls(source)
 
 
+def score_batch(scraper, offers: list) -> list:
+    """Re-score a source's offers with the evidence checks in src/confidence.py."""
+    offers, report = assess_batch(offers, local_today())
+    categorised = sum(bool(o.detected_category) for o in offers)
+    logger.info(
+        "  Quality: %s; %d/%d categorised", report.summary(), categorised, len(offers),
+    )
+    if report.anomaly:
+        scraper.flag_issue(f"Parser drift suspected — {report.summary()}; auto-publish held for this source")
+    return offers
+
+
 def audit_source(source: dict) -> bool:
     scraper = get_scraper(source)
     bank = source["bank_slug"]
     try:
-        offers = scraper.run_checked()
+        offers = score_batch(scraper, scraper.run_checked())
     except Exception as exc:
         logger.error("AUDIT %s failed: %s", bank, exc)
         return False
 
     checks = [auto_publish_blockers(offer, source) for offer in offers]
     blockers = Counter(reason for reasons in checks for reason in reasons)
+    categories = Counter(offer.detected_category or "(none)" for offer in offers)
     logger.info(
-        "AUDIT %s %s: %d extracted, %d eligible for auto-publish, review reasons %s",
+        "AUDIT %s %s: %d extracted, %d eligible for auto-publish, review reasons %s, categories %s",
         bank, "partial" if scraper.issues else "success", len(offers),
-        sum(not reasons for reasons in checks), dict(blockers),
+        sum(not reasons for reasons in checks), dict(blockers), dict(categories),
     )
+    if args_verbose():
+        for offer, reasons in zip(offers, checks):
+            logger.info(
+                "  %.2f %-12s %-60.60s %s", offer.confidence_score, offer.detected_category or "-",
+                offer.title or "", "; ".join(reasons) or "auto-publish",
+            )
     return not scraper.issues
+
+
+_VERBOSE = False
+
+
+def args_verbose() -> bool:
+    return _VERBOSE
 
 
 def main() -> int:
     parser = ArgumentParser(description="Collect CardPromo LK bank offers")
     parser.add_argument("--audit", action="store_true", help="Check configured sources without database access")
     parser.add_argument("--bank", choices=sorted(SCRAPER_MAP), help="Check only this bank in audit mode")
+    parser.add_argument("--verbose", action="store_true", help="In audit mode, list every offer with its score and blockers")
     args = parser.parse_args()
+    global _VERBOSE
+    _VERBOSE = args.verbose
     if args.bank and not args.audit:
         parser.error("--bank requires --audit")
     if args.audit:
@@ -144,6 +179,12 @@ def main() -> int:
             scraper = get_scraper(source)
             offers = scraper.run_checked()
             logger.info("  Extracted %d candidate(s)", len(offers))
+            offers = score_batch(scraper, offers)
+            previous = db.last_successful_count(source_id)
+            if previous and previous >= DRIFT_MIN_PREVIOUS and len(offers) < previous * DRIFT_DROP_SHARE:
+                scraper.flag_issue(
+                    f"Offer count dropped from {previous} to {len(offers)} since the last successful run"
+                )
 
             new_count = 0
             auto_published_count = 0

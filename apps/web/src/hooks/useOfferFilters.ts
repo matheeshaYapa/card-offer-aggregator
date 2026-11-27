@@ -59,16 +59,35 @@ export function useOfferFilters(offers: Offer[], selectedCards: SelectedCard[]) 
     ].join(' ')),
   })), [offers])
 
-  const filteredOffers = useMemo(() => {
+  // Offers matching every filter except category, so category chips can show
+  // how many results each one would give.
+  const offersBeforeCategory = useMemo(() => {
     const query = normalizeForSearch(filters.search)
     return indexedOffers.filter(({ offer, types, searchText }) =>
-      (!filters.categorySlug || offer.category?.slug === filters.categorySlug) &&
       (!filters.offerType || types.includes(filters.offerType)) &&
       (!query || searchText.includes(query)) &&
       isOfferMatchingCardFilters(offer, filters, selectedCards),
     ).map(({ offer }) => offer)
   }, [indexedOffers, filters, selectedCards])
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const offer of offersBeforeCategory) {
+      const slug = offer.category?.slug
+      if (slug) counts[slug] = (counts[slug] ?? 0) + 1
+    }
+    return counts
+  }, [offersBeforeCategory])
+
+  const filteredOffers = useMemo(() => (
+    filters.categorySlug
+      ? offersBeforeCategory.filter((offer) => offer.category?.slug === filters.categorySlug)
+      : offersBeforeCategory
+  ), [offersBeforeCategory, filters.categorySlug])
+
   const activeFilterCount = Object.values(filters).filter(Boolean).length
-  return { filters, setFilter, resetFilters, filteredOffers, activeFilterCount }
+  return {
+    filters, setFilter, resetFilters, filteredOffers, activeFilterCount,
+    categoryCounts, totalBeforeCategory: offersBeforeCategory.length,
+  }
 }

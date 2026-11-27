@@ -52,7 +52,7 @@ function buildInitialForm(c: ScrapedOfferCandidate): FormState {
     discount_text: c.detected_discount ?? '',
     description: c.description ?? '',
     merchant_id: '',
-    category_id: '',
+    category_id: c.detected_category_id ?? '',
     valid_from: c.detected_valid_from ?? '',
     valid_to: c.detected_valid_to ?? '',
     source_url: c.source_url ?? '',

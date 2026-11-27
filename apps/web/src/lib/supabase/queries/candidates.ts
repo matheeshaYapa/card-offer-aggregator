@@ -4,28 +4,36 @@ import type { OfferFormInput } from './offers'
 import { createOffer } from './offers'
 import { slugify } from '@/utils/slugUtils'
 
-const CANDIDATE_SELECT = `
+const BASE_CANDIDATE_SELECT = `
   *,
   scrape_source:scrape_sources(id, bank_id, name, source_url),
   offer:offers(id, slug, status, is_active)
+`
+// detected_category_id is added by migration 010; until it is applied the
+// join fails, so getAllCandidates() falls back to the base select.
+const CANDIDATE_SELECT = `${BASE_CANDIDATE_SELECT.trimEnd()},
+  detected_category:categories(id, name, slug)
 `
 
 export async function getAllCandidates(
   status?: CandidateStatus | 'all',
 ): Promise<ScrapedOfferCandidate[]> {
-  let query = supabase
-    .from('scraped_offer_candidates')
-    .select(CANDIDATE_SELECT)
-    .order('created_at', { ascending: false })
-    .limit(2500)
-
-  if (status && status !== 'all') {
-    query = query.eq('status', status)
+  const run = (select: string) => {
+    let query = supabase
+      .from('scraped_offer_candidates')
+      .select(select)
+      .order('created_at', { ascending: false })
+      .limit(2500)
+    if (status && status !== 'all') query = query.eq('status', status)
+    return query
   }
 
-  const { data, error } = await query
+  let { data, error } = await run(CANDIDATE_SELECT)
+  if (error && /detected_category|relationship|PGRST200|42703/i.test(`${error.code} ${error.message}`)) {
+    ;({ data, error } = await run(BASE_CANDIDATE_SELECT))
+  }
   if (error) throw error
-  return (data ?? []) as ScrapedOfferCandidate[]
+  return (data ?? []) as unknown as ScrapedOfferCandidate[]
 }
 
 export async function getPendingCandidates(): Promise<ScrapedOfferCandidate[]> {
@@ -38,7 +46,7 @@ export async function updateCandidateStatus(
 ): Promise<void> {
   const { error } = await supabase
     .from('scraped_offer_candidates')
-    .update({ status })
+    .update({ status, review_source: 'admin' })
     .eq('id', id)
   if (error) throw error
 }
@@ -54,7 +62,7 @@ export async function bulkUpdateCandidateStatus(
   if (ids.length === 0) return
   const { error } = await supabase
     .from('scraped_offer_candidates')
-    .update({ status })
+    .update({ status, review_source: 'admin' })
     .in('id', ids)
   if (error) throw error
 }
@@ -72,7 +80,7 @@ export async function approveCandidateAsOffer(
   const offerId = await createOffer(input)
   const { error } = await supabase
     .from('scraped_offer_candidates')
-    .update({ status: 'approved', offer_id: offerId })
+    .update({ status: 'approved', offer_id: offerId, review_source: 'admin' })
     .eq('id', candidateId)
   if (error) throw error
   return offerId
@@ -106,7 +114,7 @@ function buildOfferInputFromCandidate(
     discount_text: c.detected_discount ?? '',
     description: c.description ?? '',
     merchant_id: null,
-    category_id: null,
+    category_id: c.detected_category_id ?? null,
     valid_from: c.detected_valid_from ?? null,
     valid_to: c.detected_valid_to ?? null,
     source_url: c.source_url ?? '',
@@ -145,18 +153,45 @@ export async function bulkApproveAsOffers(
 /** Candidates at or above this confidence are eligible for instant publishing. */
 const AUTO_PUBLISH_THRESHOLD = 0.8
 
+/** Checks that block publishing whatever the score. Keep in sync with HARD_FLAGS in scrapers/src/confidence.py. */
+export const HARD_QUALITY_FLAGS = new Set([
+  'placeholder_title', 'generic_title', 'benefit_not_in_text', 'implausible_benefit', 'batch_anomaly',
+])
+
+/** Human-readable labels for scraper quality flags. Mirrors FLAG_LABELS in scrapers/src/confidence.py. */
+export const QUALITY_FLAG_LABELS: Record<string, string> = {
+  placeholder_title: 'Title is a placeholder or template',
+  generic_title: 'Title is a page heading, not an offer',
+  benefit_not_in_text: "Benefit not found in the bank's text",
+  implausible_benefit: 'Benefit value looks implausible',
+  duplicate_title: 'Several offers share this title',
+  vague_benefit: "Benefit has no value (e.g. 'Special offer')",
+  far_future_end: 'End date is unusually far ahead',
+  joined_words: 'Title has words run together',
+  long_title: 'Title is unusually long',
+  starts_far_ahead: 'Starts more than 90 days from now',
+  no_merchant: 'No merchant detected',
+  no_category: 'No category detected',
+  boilerplate_description: 'Description was page boilerplate (removed)',
+  batch_anomaly: 'Most offers from this source failed checks',
+}
+
+export function isPublishable(c: ScrapedOfferCandidate): boolean {
+  return (c.confidence_score ?? 0) >= AUTO_PUBLISH_THRESHOLD &&
+    !(c.quality_flags ?? []).some((flag) => HARD_QUALITY_FLAGS.has(flag))
+}
+
 /**
  * Publish high-confidence (>= 80%) candidates as live, approved offers
- * immediately. Candidates below the threshold are skipped (left pending).
+ * immediately. Candidates below the threshold, or with a failed hard check,
+ * are skipped (left pending).
  *
  * Uses Promise.allSettled so one failure won't abort the rest.
  */
 export async function bulkPublishHighConfidence(
   candidates: ScrapedOfferCandidate[],
 ): Promise<{ published: number; skipped: number; failed: number }> {
-  const eligible = candidates.filter(
-    (c) => (c.confidence_score ?? 0) >= AUTO_PUBLISH_THRESHOLD,
-  )
+  const eligible = candidates.filter(isPublishable)
   const skipped = candidates.length - eligible.length
 
   const results = await Promise.allSettled(

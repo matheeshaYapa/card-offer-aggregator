@@ -46,6 +46,15 @@ jobs:
           pip install -r scrapers/requirements.txt
           echo "=== Dependencies installed ==="
 
+      # ── 3a. Classifier + confidence tests ─────────────────────────────────
+      # Fails fast if a change to config/category_rules.json or the scoring
+      # rules breaks known cases, before any candidate is scored with them.
+      - name: Test classifier and confidence rules
+        run: |
+          pip install pytest --quiet
+          cd scrapers
+          python -m pytest -q tests
+
       # ── 3b. Playwright Chromium ───────────────────────────────────────────
       # Required by SampathScraper as a JS-rendering fallback when cloudscraper
       # cannot bypass Cloudflare protection.

@@ -1,0 +1,253 @@
+{
+  "_comment": [
+    "Category rules for scraped offers. Shared by the scraper (src/extractors/category_extractor.py)",
+    "and the backfill script. Patterns are case-insensitive regular expressions matched on word",
+    "boundaries. 'labels' map a bank's own category label (the 'Category: X' part of raw_text) and",
+    "win outright when they match. 'terms' are weighted evidence; 'brands' are known merchants",
+    "and count as strong evidence. Slugs must exist in public.categories.",
+    "Categories 'automotive', 'education' and 'services' are added by migration 010."
+  ],
+  "min_confidence": 0.45,
+  "field_weights": {"title": 3.0, "merchant": 3.0, "description": 1.5, "raw_text": 0.5},
+  "categories": {
+    "dining": {
+      "labels": ["dining", "restaurant", "food", "beverage", "cafe", "eat"],
+      "terms": [
+        ["restaurants?", 3],
+        ["dining", 3],
+        ["dine[ -]?in", 3],
+        ["dine", 2],
+        ["buffet", 3],
+        ["lunch", 2],
+        ["dinner", 2],
+        ["breakfast buffet", 2],
+        ["brunch", 2],
+        ["high tea", 2],
+        ["caf[eé]s?", 2],
+        ["bakery|bakers|cakes?", 2],
+        ["pizza", 3],
+        ["burgers?", 3],
+        ["sushi", 3],
+        ["steak ?house|steaks?", 3],
+        ["bistro", 3],
+        ["grill", 2],
+        ["pub", 2],
+        ["cuisine", 2],
+        ["takeaway|take ?away|delivery orders?", 1],
+        ["food bill|total food|food (?:and|&) beverages?|f ?& ?b", 3],
+        ["food", 1],
+        ["chinese|japanese|thai|indian|italian|korean restaurant", 1],
+        ["pavilion", 1],
+        ["ice ?cream|desserts?|coffee|tea lounge", 2],
+        ["bars?|rooftop", 3],
+        ["resto(?:-?bar)?|ristorante|trattoria|lounge", 3],
+        ["fast ?food|bowls?", 3],
+        ["[-–]\\s[^|]*\\b(?:restaurant|bar|lounge|caf[eé]|bistro|grill|resto(?:-bar)?|dining room)|(?:restaurant|bar|lounge|caf[eé]|bistro|grill) (?:at|@)", 3]
+      ],
+      "brands": [
+        "kfc", "pizza hut", "domino'?s", "mcdonald'?s", "burger king", "subway", "barista",
+        "java lounge", "crystal jade", "nagoya", "ministry of crab", "the dining room", "long feng",
+        "monsoon", "navratna", "yi jing", "peshawri", "ahasa", "the islander",
+        "softlogic restaurants?", "taco bell", "dunkin'?", "baskin robbins", "carnival", "fab",
+        "perera (?:&|and) sons", "green cabin", "harpo'?s", "chutneys", "sizzle",
+        "colombo steak house", "street burger", "cinnabon", "gloria jean'?s", "coffee bean", "popeyes",
+        "delifrance", "dineway", "indian affair", "solo bowl", "via torino", "mc ?donald'?s",
+        "sunimals", "tofo", "saffans", "theta lounge", "marco polo", "pickme food"
+      ]
+    },
+    "travel": {
+      "labels": ["hotel", "travel", "resort", "accommodation", "holiday", "stay", "leisure", "airline", "tour"],
+      "terms": [
+        ["hotels?", 3],
+        ["resorts?", 3],
+        ["villas?", 2],
+        ["bungalows?", 2],
+        ["lodges?", 2],
+        ["retreats?", 2],
+        ["estates?", 1],
+        ["inn", 1],
+        ["suites?", 1],
+        ["residences?", 1],
+        ["(?:bb|hb|fb|ro)(?: ?[,/&] ?(?:bb|hb|fb|ro))* basis", 4],
+        ["half ?board|full ?board|bed (?:and|&) breakfast|room only", 4],
+        ["room bookings?|room rates?|double (?:and|&|or) triple|per night|nights? stay|stays?", 3],
+        ["reservations?", 2],
+        ["accommodation", 3],
+        ["holidays?", 2],
+        ["getaway", 2],
+        ["air ?lines?|airways|air ?tickets?|air ?fares?|base fare|flights?", 4],
+        ["travel(?:ling)?|travel agents?|tours?|tour packages?|excursions?", 3],
+        ["safari|cruise|sail(?:ing)?|whale watching", 2],
+        ["beach", 1],
+        ["visa destination", 2],
+        ["booking\\.com|agoda|expedia|airbnb|pelago|klook", 4],
+        ["(?:bb|hb|fb)(?: ?(?:,|/|&|and) ?(?:bb|hb|fb))+", 4],
+        ["resort (?:&|and) spa", 3],
+        ["\\d+ nights?|minimum of \\d+ nights?", 3],
+        ["hajj|umrah|pilgrimage", 4],
+        ["attractions?|sightseeing", 2],
+        ["singapore|thailand|malaysia|maldives|dubai|indonesia|bali|japan|vietnam|korea|china|australia|europe|uk|usa", 2]
+      ],
+      "brands": [
+        "cinnamon", "jetwing", "shangri-?la", "hilton", "marriott", "taj", "itc ratnadeepa",
+        "galle face hotel", "heritance", "aitken spence", "anantaya", "amari", "radisson", "mandara",
+        "nyne hotels?", "swiss-?belhotel", "findmyfare", "emirates", "srilankan airlines",
+        "qatar airways", "singapore airlines", "fly ?dubai", "air asia", "indigo", "cathay",
+        "travel googoo", "earls regency", "kingsbury", "mount lavinia hotel", "araliya", "lavanga",
+        "joe'?s resort", "the swiss residence", "centauria", "aarunya", "best western", "wattura",
+        "summer clouds", "river house", "era beach", "lotus estate", "elephant reach"
+      ]
+    },
+    "supermarket": {
+      "labels": ["super ?markets?", "grocer", "groceries"],
+      "terms": [
+        ["super ?markets?|hyper ?markets?|super ?centres?", 4],
+        ["grocer(?:y|ies)", 4],
+        ["fresh vegetables|fruits|seafood|meat|fresh produce", 2],
+        ["mini mart|city mart", 3]
+      ],
+      "brands": [
+        "keells", "super k", "cargills", "food city", "glomark", "spar", "laugfs super",
+        "arpico super ?cent(?:re|er)", "lanka sathosa", "sathosa", "ceylon city mart"
+      ]
+    },
+    "electronics": {
+      "labels": ["electronic", "electrical", "appliance", "furniture", "home"],
+      "terms": [
+        ["electronics?|electricals?", 4],
+        ["home appliances?|appliances?", 4],
+        ["mobile phones?|smart ?phones?|laptops?|computers?|tablets?|televisions?|tvs?", 3],
+        ["refrigerators?|washing machines?|air ?conditioners?|cameras?|gadgets?", 3],
+        ["furniture|mattress(?:es)?|sofas?|home ?ware|kitchen ?ware", 3],
+        ["solar", 2],
+        ["solar|power solutions?|inverters?", 3]
+      ],
+      "brands": [
+        "abans", "singer", "damro", "softlogic (?:max|mobile|holdings)", "dialog", "mobitel",
+        "samsung", "apple", "huawei", "xiaomi", "lg", "sony", "panasonic", "arpico furniture",
+        "metropolitan", "unic", "celltronics", "redline", "nanotek", "barclays computers", "mysoft",
+        "singhagiri", "laptop\\.lk", "wasi\\.lk", "buyabans", "hayleys fentons", "slam power",
+        "rocell", "dinapala", "nisaco", "seetha holdings"
+      ]
+    },
+    "shopping": {
+      "labels": ["shopping", "fashion", "cloth", "apparel", "jewel", "footwear", "shoe", "retail", "accessor"],
+      "terms": [
+        ["fashion", 4],
+        ["cloth(?:es|ing)|apparel|garments?|outfits?|sarees?|textiles?", 4],
+        ["footwear|shoes?|sandals?|slippers?", 4],
+        ["jewell?e?ry|jewell?ers?|diamonds?|gold|gems?", 4],
+        ["watch(?:es)?|eyewear|sunglasses|handbags?|bags?|luggage", 3],
+        ["cosmetics?|beauty products?|perfumes?|fragrances?", 3],
+        ["toys?|books?|stationery", 2],
+        ["shopping|shop|stores?|outlets?|boutiques?|retail", 1],
+        ["flowers?|gifts?|hampers?|fruit baskets?|cakes (?:and|&) flowers", 3],
+        ["kids ?wear|wear ?house|menswear|womenswear|styles?", 2],
+        ["wrist|timepieces?", 3]
+      ],
+      "brands": [
+        "odel", "crocodile", "cool planet", "spring (?:and|&) summer", "kelly felder", "fashion bug",
+        "nolimit", "no limit", "house of fashions?", "thilakawardhana", "wilson (?:&|and) birkenstock",
+        "diamond dreams", "vogue jewellers", "swarovski", "bata", "dsi", "junktion", "tea tang",
+        "paradise road", "barefoot", "mimosa", "envoy", "avirate", "moose", "tiffany", "pandora",
+        "charles (?:&|and) keith", "adidas", "nike", "puma", "levi'?s", "skechers", "hameedia",
+        "birkenstock", "wrist lab", "helanka", "kids wear ?house", "wishque", "lassana", "hunters"
+      ]
+    },
+    "online": {
+      "labels": ["online", "e-?commerce", "web"],
+      "terms": [
+        ["online(?: store| shopping| purchases?| payments?)?", 3],
+        ["e-?commerce|web ?store|app purchases?", 3],
+        ["www\\.|\\.lk\\b|\\.com\\b", 2],
+        ["delivery", 1]
+      ],
+      "brands": [
+        "daraz", "kapruka", "wow\\.lk", "takas\\.lk", "ikman", "pickme", "uber eats", "tudo\\.lk",
+        "cargills online", "keellssuper\\.com", "aliexpress", "amazon", "netflix", "spotify"
+      ]
+    },
+    "healthcare": {
+      "labels": ["health", "medical", "hospital", "pharma", "insurance", "wellness"],
+      "terms": [
+        ["hospitals?", 4],
+        ["clinics?|medical|healthcare|health care", 4],
+        ["health", 3],
+        ["pharmac(?:y|ies)|pharmaceuticals?|medicines?", 4],
+        ["channell?ing|lab(?:oratory|oratories)? (?:tests?|investigations?)|laborator(?:y|ies)", 4],
+        ["dental|dentists?|optical|opticians?|eye care|spectacles", 4],
+        ["ayurved(?:a|ic)", 2],
+        ["dna test|scan|diagnostics?|wellness packages?", 3],
+        ["insurance", 2]
+      ],
+      "brands": [
+        "durdans", "asiri", "nawaloka", "lanka hospitals", "hemas hospital", "ninewells",
+        "healthguard", "osu sala", "siddhalepa", "circledna", "vision care", "estheti",
+        "kings hospital"
+      ]
+    },
+    "lifestyle": {
+      "labels": ["lifestyle", "entertainment", "spa", "salon", "beauty", "fitness", "wedding", "leisure"],
+      "terms": [
+        ["spas?", 3],
+        ["salons?|hair ?dress(?:ing|ers?)|barbers?|beauty (?:care|parlou?r)", 4],
+        ["massages?|foot ?rubs?|reflexology", 4],
+        ["gyms?|fitness|yoga", 4],
+        ["wellness", 2],
+        ["cinemas?|movies?|films?|theatres?|concerts?|events?|tickets?", 3],
+        ["weddings?|bridal", 4],
+        ["photography|studios?", 2],
+        ["activities|adventure|water ?sports|golf", 2],
+        ["pets?|veterinary", 3],
+        ["entertainment|leisure|gaming", 2]
+      ],
+      "brands": [
+        "footrub", "plan ?my ?wedding", "scope cinemas", "pvr", "liberty cinema", "spa ceylon",
+        "ramani fernando", "salon ishq", "royal albatross"
+      ]
+    },
+    "automotive": {
+      "labels": ["auto", "vehicle", "fuel", "motor", "car"],
+      "terms": [
+        ["fuel|petrol|diesel|filling stations?|fuel surcharge", 4],
+        ["engine oil|lubricants?", 4],
+        ["tyres?|tires?|batter(?:y|ies)|wheel alignment", 4],
+        ["vehicles?|cars?|motor ?cycles?|scooters?|three ?wheelers?", 3],
+        ["auto ?care|auto ?mobile|automotive|car wash|service centres?|vehicle service|spare parts", 4],
+        ["motors?", 2],
+        ["wheels?|wheel service", 3]
+      ],
+      "brands": [
+        "toyota", "mobil", "caltex", "cpc", "lanka ioc", "laugfs gas", "dpmc", "david pieris",
+        "united motors", "micro cars", "siyalga", "associated motorways", "ideal motors", "suzuki",
+        "honda", "kia", "hyundai", "toyotsu", "merc-?stop", "u ?& ?h wheel"
+      ]
+    },
+    "education": {
+      "labels": ["educat", "school", "campus"],
+      "terms": [
+        ["campus(?:es)?|institutes?|colleges?|academy|academies|universit(?:y|ies)|schools?|educational|education|courses?|tuition|exam fees?|professional (?:exams?|bodies)", 4]
+      ],
+      "brands": [
+        "acca", "cima", "aicpa", "slim", "sliit", "iit", "icbt", "cipm", "acbt", "bms",
+        "british council", "myfees(?:\\.lk)?", "toastmasters", "cgpsl", "talkative parents",
+        "bristol institute", "siem"
+      ]
+    },
+    "services": {
+      "labels": ["bill", "utilit", "service", "payment"],
+      "terms": [
+        ["utility bills?|(?:any |utility |mobile )?bill payments?|toll payments?|expressway toll", 4],
+        ["courier|parcels?|worldwide delivery|logistics", 4],
+        ["laundr(?:y|omat)|dry clean(?:ing)?", 4],
+        ["rides?|taxi|cabs?", 3],
+        ["reloads?|top ?ups?|mobile bills?", 3],
+        ["foreign currency transactions?", 3],
+        ["insurance premiums?", 3]
+      ],
+      "brands": [
+        "uber", "pickme", "dhl", "fedex", "q\\+ payment app", "the laundromat"
+      ]
+    }
+  }
+}
