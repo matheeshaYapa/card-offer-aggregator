@@ -21,18 +21,20 @@ export default function SearchInput({
       />
       <input
         type="search"
+        aria-label={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-9 pr-8 py-2.5 text-sm bg-white border border-border rounded-xl
+        className="w-full pl-9 pr-10 py-2.5 text-base bg-white border border-border rounded-xl
           placeholder:text-muted text-content
           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
           transition-colors"
       />
       {value && (
         <button
+          type="button"
           onClick={() => onChange('')}
-          className="absolute right-2.5 text-muted hover:text-content transition-colors"
+          className="absolute right-1.5 grid size-9 place-items-center rounded-lg text-muted hover:text-content transition-colors"
           aria-label="Clear search"
         >
           <X size={14} />

@@ -8,6 +8,8 @@ interface OfferGridProps {
   offers: Offer[]
   loading?: boolean
   showCount?: boolean
+  compact?: boolean
+  emptyAction?: () => void
 }
 
 /** How many cards to render per page. Keeps the DOM small to avoid the heavy
@@ -16,8 +18,8 @@ const PAGE_SIZE = 24
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-2xl border border-border p-4 pl-5 animate-pulse min-h-[210px] flex flex-col">
-      <div className="h-6 w-28 bg-slate-200 rounded-lg mb-3" />
+    <div aria-hidden="true" className="bg-white rounded-2xl border border-border p-5 motion-safe:animate-pulse min-h-[240px] flex flex-col">
+      <div className="h-7 w-24 bg-slate-200 rounded mb-3" />
       <div className="h-4 bg-slate-100 rounded w-3/4 mb-1.5" />
       <div className="h-4 bg-slate-100 rounded w-1/2 mb-3" />
       <div className="flex gap-1.5">
@@ -36,6 +38,8 @@ export default function OfferGrid({
   offers,
   loading = false,
   showCount = true,
+  compact = false,
+  emptyAction,
 }: OfferGridProps) {
   const [visible, setVisible] = useState(PAGE_SIZE)
 
@@ -53,7 +57,7 @@ export default function OfferGrid({
     // through data load (prevents the large cumulative layout shift).
     <div className="min-h-[60vh]">
       {showCount && (
-        <div className="flex items-center gap-1.5 text-xs text-muted mb-4 h-5">
+        <div role="status" className="flex items-center gap-2 text-sm text-muted mb-4 min-h-5">
           <Tags size={13} />
           <span>
             {loading
@@ -67,11 +71,12 @@ export default function OfferGrid({
         <EmptyState
           icon={<SearchX size={24} />}
           title="No matching promotions found"
-          description="Try changing your filters or removing selected cards to see more offers."
+          description={emptyAction ? 'Try a different search or clear your filters.' : 'Check back for new promotions.'}
+          action={emptyAction && <button type="button" onClick={emptyAction} className="browse-action">Clear filters</button>}
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${compact ? 'xl:grid-cols-3' : 'lg:grid-cols-3 xl:grid-cols-4'}`}>
             {loading
               ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
               : shown.map((offer) => <OfferCard key={offer.id} offer={offer} />)}

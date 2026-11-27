@@ -6,18 +6,18 @@ export default function Header() {
   const { selectedCards } = useSelectedCards()
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-border">
+      <div className="max-w-[76rem] mx-auto px-4 min-h-16 flex items-center justify-between">
         {/* Logo */}
         <Link
           to="/"
           className="flex items-center gap-2 font-bold text-primary hover:opacity-80 transition-opacity"
         >
-          <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
-            <CreditCard size={15} className="text-white" />
+          <div className="size-9 bg-primary rounded-xl flex items-center justify-center">
+            <CreditCard size={20} className="text-white" />
           </div>
-          <span className="text-base tracking-tight">
-            CardPromo <span className="text-content/60 font-semibold">LK</span>
+          <span className="text-lg tracking-tight text-content">
+            CardPromo <span className="text-primary font-semibold">LK</span>
           </span>
         </Link>
 
@@ -27,19 +27,19 @@ export default function Header() {
             to="/"
             end
             className={({ isActive }) =>
-              `px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              `px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 isActive
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted hover:text-content hover:bg-slate-50'
               }`
             }
           >
-            Promotions
+            Explore offers
           </NavLink>
           <NavLink
             to="/my-cards"
             className={({ isActive }) =>
-              `px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              `px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 ${
                 isActive
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted hover:text-content hover:bg-slate-50'
@@ -59,7 +59,7 @@ export default function Header() {
         {/* Mobile: card count pill */}
         <Link
           to="/my-cards"
-          className="md:hidden flex items-center gap-1.5 text-sm font-medium text-muted hover:text-primary transition-colors"
+          className="md:hidden flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg text-sm font-medium text-muted hover:text-primary transition-colors"
           aria-label="My Cards"
         >
           <Wallet size={18} />

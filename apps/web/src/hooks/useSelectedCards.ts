@@ -2,6 +2,7 @@ import { useLocalStorage } from './useLocalStorage'
 import type { Card, SelectedCard } from '@/types'
 
 const STORAGE_KEY = 'cardpromo.selectedCards'
+const EMPTY_CARDS: SelectedCard[] = []
 
 function toSelectedCard(card: Card): SelectedCard {
   return {
@@ -19,7 +20,7 @@ function toSelectedCard(card: Card): SelectedCard {
 export function useSelectedCards() {
   const [selectedCards, setSelectedCards] = useLocalStorage<SelectedCard[]>(
     STORAGE_KEY,
-    [],
+    EMPTY_CARDS,
   )
 
   function addCard(card: Card) {

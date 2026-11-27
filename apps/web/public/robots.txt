@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /admin/
 Disallow: /my-cards
 
-Sitemap: https://cardpromo.lk/sitemap.xml
+Sitemap: https://card-promo.com/sitemap.xml

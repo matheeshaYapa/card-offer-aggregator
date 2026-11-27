@@ -11,18 +11,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-
-// Load .env.local for local builds (Cloudflare/Vercel inject these as real env vars)
-const envLocalPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../.env.local',
-)
-if (fs.existsSync(envLocalPath)) {
-  for (const line of fs.readFileSync(envLocalPath, 'utf-8').split('\n')) {
-    const match = line.match(/^([^#=\s]+)\s*=\s*(.*)$/)
-    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim()
-  }
-}
+import { loadPublicRouteSlugs } from './public-routes'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -46,33 +35,10 @@ let bankSlugs = SEED_BANK_SLUGS
 let categorySlugs = SEED_CATEGORY_SLUGS
 let offerSlugs = SEED_OFFER_SLUGS
 
-// ── Try to fetch live slugs from Supabase ────────────────────────────────────
-const supabaseUrl = process.env.VITE_SUPABASE_URL
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
-
-if (supabaseUrl && supabaseAnonKey) {
-  console.log('Fetching routes from Supabase…')
-  const { createClient } = await import('@supabase/supabase-js')
-  const client = createClient(supabaseUrl, supabaseAnonKey)
-  const today = new Date().toISOString().split('T')[0]
-
-  const [{ data: banks }, { data: cats }, { data: offers }] = await Promise.all([
-    client.from('banks').select('slug').eq('is_active', true),
-    client.from('categories').select('slug').eq('is_active', true),
-    client
-      .from('offers')
-      .select('slug')
-      .eq('status', 'approved')
-      .eq('is_active', true)
-      .or(`valid_to.is.null,valid_to.gte.${today}`),
-  ])
-
-  if (banks) bankSlugs = banks.map((b: { slug: string }) => b.slug)
-  if (cats) categorySlugs = cats.map((c: { slug: string }) => c.slug)
-  if (offers) offerSlugs = offers.map((o: { slug: string }) => o.slug)
-} else {
-  console.log('No Supabase env vars — using seed route list.')
-}
+const liveRoutes = await loadPublicRouteSlugs(root)
+if (liveRoutes?.banks) bankSlugs = liveRoutes.banks
+if (liveRoutes?.categories) categorySlugs = liveRoutes.categories
+if (liveRoutes?.offers) offerSlugs = liveRoutes.offers
 
 const template = fs.readFileSync(toAbs('dist/index.html'), 'utf-8')
 

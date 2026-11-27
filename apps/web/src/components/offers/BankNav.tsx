@@ -1,64 +1,83 @@
 import { Link } from 'react-router-dom'
-import { Building2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import type { Bank } from '@/types'
 import { getBankTheme } from '@/utils/bankTheme'
 
 interface BankNavProps {
   banks: Bank[]
   loading?: boolean
-  /** Slug of the bank currently being viewed — rendered as a highlighted, non-link chip. */
+  /** Slug of the bank currently being viewed — highlighted in the pills variant. */
   activeSlug?: string
+  /** 'tiles' = home grid with offer counts; 'pills' = compact cross-bank nav. */
+  variant?: 'tiles' | 'pills'
+  /** Live offer count per bank slug (tiles variant). */
+  offerCountBySlug?: Record<string, number>
 }
 
-/**
- * Horizontal "Browse by bank" strip on the dashboard. Each chip links to the
- * bank's dedicated page (`/bank/:slug`) so users can discover and browse a
- * single bank's offers. Renders fixed-height skeleton chips while banks load
- * so its appearance doesn't introduce a layout shift.
- */
-export default function BankNav({ banks, loading = false, activeSlug }: BankNavProps) {
+export default function BankNav({
+  banks,
+  loading = false,
+  activeSlug,
+  variant = 'tiles',
+  offerCountBySlug = {},
+}: BankNavProps) {
   if (!loading && banks.length === 0) return null
 
-  return (
-    <div className="mb-5">
-      <div className="flex items-center gap-1.5 mb-2">
-        <Building2 size={13} className="text-muted" />
-        <h2 className="text-xs font-semibold text-content">Browse by bank</h2>
+  if (variant === 'pills') {
+    return (
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+        {banks.map((bank) => {
+          const theme = getBankTheme(bank.slug)
+          const isActive = bank.slug === activeSlug
+          const content = (
+            <>
+              <span className={`w-1.5 h-1.5 rounded-full ${theme.stripe}`} />
+              {bank.short_name ?? bank.name}
+            </>
+          )
+          const base = `shrink-0 inline-flex items-center gap-1.5 h-9 rounded-full px-3.5 text-xs font-semibold ${theme.badge}`
+          return isActive ? (
+            <span key={bank.id} aria-current="page" className={`${base} ring-2 ring-current`}>
+              {content}
+            </span>
+          ) : (
+            <Link key={bank.id} to={`/bank/${bank.slug}`} className={`${base} hover:opacity-80 transition-opacity`}>
+              {content}
+            </Link>
+          )
+        })}
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+    )
+  }
+
+  // ── Tiles ─────────────────────────────────────────────────────────────────
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2.5">
+        <h2 className="text-sm font-bold text-content">Browse by bank</h2>
+        <span className="text-xs text-muted hidden sm:block">Tap a bank to see all its offers</span>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2.5">
         {loading
           ? Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="shrink-0 h-8 w-24 rounded-full bg-slate-100 animate-pulse"
-              />
+              <div key={i} className="h-[62px] rounded-[14px] bg-slate-100 animate-pulse" />
             ))
           : banks.map((bank) => {
               const theme = getBankTheme(bank.slug)
-              const isActive = bank.slug === activeSlug
-              const content = (
-                <>
-                  <span className={`w-1.5 h-1.5 rounded-full ${theme.stripe}`} />
-                  {bank.short_name ?? bank.name}
-                </>
-              )
-              const base = `shrink-0 inline-flex items-center gap-1.5 h-8 rounded-full px-3 text-xs font-semibold ${theme.badge}`
-
-              return isActive ? (
-                <span
-                  key={bank.id}
-                  aria-current="page"
-                  className={`${base} ring-2 ring-current ring-offset-1`}
-                >
-                  {content}
-                </span>
-              ) : (
+              const count = offerCountBySlug[bank.slug] ?? 0
+              return (
                 <Link
                   key={bank.id}
                   to={`/bank/${bank.slug}`}
-                  className={`${base} hover:opacity-80 transition-opacity`}
+                  className={`block rounded-[14px] px-4 py-3.5 transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_16px_rgba(15,23,42,0.08)] ${theme.tileBg} ${theme.tileText}`}
                 >
-                  {content}
+                  <span className="text-sm font-bold">{bank.short_name ?? bank.name}</span>
+                  <span className="mt-2 flex items-center justify-between">
+                    <span className="text-xs opacity-75">
+                      {count} offer{count !== 1 ? 's' : ''}
+                    </span>
+                    <ArrowRight size={14} />
+                  </span>
                 </Link>
               )
             })}

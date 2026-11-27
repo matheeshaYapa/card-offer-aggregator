@@ -6,26 +6,26 @@ export default function BottomNav() {
   const { selectedCards } = useSelectedCards()
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-border safe-area-inset-bottom">
+    <nav aria-label="Mobile navigation" className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-border pb-[env(safe-area-inset-bottom)]">
       <div className="flex h-16">
         <NavLink
           to="/"
           end
           className={({ isActive }) =>
             `flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors ${
-              isActive ? 'text-primary' : 'text-muted'
+              isActive ? 'text-primary bg-primary/5' : 'text-muted'
             }`
           }
         >
           <Home size={20} />
-          <span>Promotions</span>
+          <span>Offers</span>
         </NavLink>
 
         <NavLink
           to="/my-cards"
           className={({ isActive }) =>
             `flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors relative ${
-              isActive ? 'text-primary' : 'text-muted'
+              isActive ? 'text-primary bg-primary/5' : 'text-muted'
             }`
           }
         >

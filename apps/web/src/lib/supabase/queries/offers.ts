@@ -1,6 +1,7 @@
 import { supabase } from '../client'
 import type { Offer } from '@/types'
 import { isOfferMatchingBankSlug } from '@/utils/offerMatching'
+import { sriLankaDate } from '@/utils/dateUtils'
 import { getCategoryBySlug } from './categories'
 
 const OFFER_SELECT = `
@@ -20,31 +21,44 @@ const OFFER_SELECT = `
   )
 `
 
-/** Fetch all public (approved, active, non-expired) offers */
-export async function getPublicOffers(): Promise<Offer[]> {
-  const today = new Date().toISOString().split('T')[0]
-  const { data, error } = await supabase
+function publicOffersQuery(today: string) {
+  return supabase
     .from('offers')
     .select(OFFER_SELECT)
     .eq('status', 'approved')
     .eq('is_active', true)
+    .or(`valid_from.is.null,valid_from.lte.${today}`)
     .or(`valid_to.is.null,valid_to.gte.${today}`)
-    .order('is_featured', { ascending: false })
-    .order('published_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as Offer[]
+}
+
+/** Fetch all currently available offers, including catalogs above Supabase's row limit. */
+export async function getPublicOffers(): Promise<Offer[]> {
+  return getPublicOfferPages()
+}
+
+async function getPublicOfferPages(categoryId?: string): Promise<Offer[]> {
+  const today = sriLankaDate()
+  const pageSize = 250
+  const offers: Offer[] = []
+
+  for (let offset = 0; ; offset += pageSize) {
+    const query = publicOffersQuery(today)
+    if (categoryId) query.eq('category_id', categoryId)
+    const { data, error } = await query
+      .order('is_featured', { ascending: false })
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('id')
+      .range(offset, offset + pageSize - 1)
+    if (error) throw error
+    offers.push(...((data ?? []) as Offer[]))
+    if (!data || data.length < pageSize) return offers
+  }
 }
 
 /** Fetch a single public offer by slug */
 export async function getOfferBySlug(slug: string): Promise<Offer | null> {
-  const today = new Date().toISOString().split('T')[0]
-  const { data, error } = await supabase
-    .from('offers')
-    .select(OFFER_SELECT)
+  const { data, error } = await publicOffersQuery(sriLankaDate())
     .eq('slug', slug)
-    .eq('status', 'approved')
-    .eq('is_active', true)
-    .or(`valid_to.is.null,valid_to.gte.${today}`)
     .maybeSingle()
   if (error) throw error
   return data as Offer | null
@@ -63,18 +77,7 @@ export async function getOffersByCategorySlug(
   const category = await getCategoryBySlug(categorySlug)
   if (!category) return []
 
-  const today = new Date().toISOString().split('T')[0]
-  const { data, error } = await supabase
-    .from('offers')
-    .select(OFFER_SELECT)
-    .eq('status', 'approved')
-    .eq('is_active', true)
-    .eq('category_id', category.id)
-    .or(`valid_to.is.null,valid_to.gte.${today}`)
-    .order('is_featured', { ascending: false })
-    .order('published_at', { ascending: false })
-  if (error) throw error
-  return (data ?? []) as Offer[]
+  return getPublicOfferPages(category.id)
 }
 
 // ── Admin queries (require authenticated admin session) ──────────────────

@@ -81,7 +81,7 @@ class PeoplesBankScraper(BaseScraper):
                         new_count += 1
                 logger.info("  PeoplesBank: %-22s → %d candidate(s)", cat, new_count)
             except Exception as exc:
-                logger.warning("  PeoplesBank: failed for %s: %s", cat, exc)
+                self.flag_issue(f"People's Bank category {cat} failed: {exc}")
             time.sleep(0.5)   # polite rate limit
 
         logger.info("  PeoplesBank: %d unique candidate(s) total", len(candidates))
@@ -103,7 +103,7 @@ class PeoplesBankScraper(BaseScraper):
             if slugs:
                 return slugs
         except Exception as exc:
-            logger.warning("  PeoplesBank: hub discovery failed: %s", exc)
+            self.flag_issue(f"People's Bank category discovery failed: {exc}")
         return _FALLBACK_CATEGORIES
 
     # ── Per-category parsing ──────────────────────────────────────────────

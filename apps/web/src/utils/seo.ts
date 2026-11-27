@@ -7,7 +7,7 @@
 
 export const SITE_URL: string =
   (import.meta.env.VITE_APP_BASE_URL as string | undefined)?.replace(/\/$/, '') ??
-  'https://cardpromo.lk'
+  'https://card-promo.com'
 
 export const SITE_NAME = 'CardPromo LK'
 

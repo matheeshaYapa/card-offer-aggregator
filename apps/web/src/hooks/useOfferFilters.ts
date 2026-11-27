@@ -1,98 +1,74 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { FilterState, Offer, SelectedCard } from '@/types'
-import {
-  isOfferMatchingBankSlug,
-  isOfferMatchingCardType,
-  isOfferMatchingNetwork,
-  isOfferMatchingSelectedCards,
-} from '@/utils/offerMatching'
+import { getOfferBanks, isOfferMatchingCardFilters } from '@/utils/offerMatching'
+import { getOfferTypes, OFFER_TYPES } from '@/utils/offerDisplay'
 import { normalizeForSearch } from '@/utils/normalization'
 
-const DEFAULT_FILTERS: FilterState = {
-  search: '',
-  bankSlug: null,
-  categorySlug: null,
-  merchantSlug: null,
-  cardType: null,
-  network: null,
-  myCardsOnly: false,
-  showExpired: false,
+const filterParams: Record<keyof FilterState, string> = {
+  search: 'q',
+  bankSlug: 'bank',
+  categorySlug: 'category',
+  offerType: 'type',
+  cardType: 'card',
+  network: 'network',
+  myCardsOnly: 'myCardsOnly',
 }
 
 export function useOfferFilters(offers: Offer[], selectedCards: SelectedCard[]) {
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
+  const [params, setParams] = useSearchParams()
+  const filters = useMemo<FilterState>(() => {
+    const card = params.get('card')
+    const network = params.get('network')
+    return {
+      search: params.get('q') ?? '',
+      bankSlug: params.get('bank'),
+      categorySlug: params.get('category'),
+      offerType: OFFER_TYPES.find(({ id }) => id === params.get('type'))?.id ?? null,
+      cardType: card === 'credit' || card === 'debit' ? card : null,
+      network: network === 'visa' || network === 'mastercard' || network === 'amex' || network === 'other' ? network : null,
+      myCardsOnly: params.get('myCardsOnly') === 'true',
+    }
+  }, [params])
 
-  const setFilter = useCallback(<K extends keyof FilterState>(
-    key: K,
-    value: FilterState[K],
-  ) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
-  }, [])
+  function setFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
+    const next = new URLSearchParams(params)
+    const param = filterParams[key]
+    if (value) next.set(param, String(value))
+    else next.delete(param)
+    setParams(next, { replace: key === 'search', preventScrollReset: true })
+  }
 
-  const resetFilters = useCallback(() => setFilters(DEFAULT_FILTERS), [])
+  function resetFilters() {
+    const next = new URLSearchParams(params)
+    for (const key of Object.values(filterParams)) next.delete(key)
+    setParams(next, { preventScrollReset: true })
+  }
+
+  const indexedOffers = useMemo(() => offers.map((offer) => ({
+    offer,
+    types: getOfferTypes(offer),
+    searchText: normalizeForSearch([
+      offer.title,
+      offer.merchant?.name ?? '',
+      offer.description ?? '',
+      offer.discount_text ?? '',
+      offer.category?.name ?? '',
+      ...getOfferBanks(offer).map((bank) => [bank.name, bank.short_name].join(' ')),
+      ...(offer.offer_cards ?? []).map(({ card }) => card?.name ?? ''),
+    ].join(' ')),
+  })), [offers])
 
   const filteredOffers = useMemo(() => {
-    return offers.filter((offer) => {
-      if (filters.bankSlug) {
-        if (!isOfferMatchingBankSlug(offer, filters.bankSlug)) return false
-      }
+    const query = normalizeForSearch(filters.search)
+    return indexedOffers.filter(({ offer, types, searchText }) =>
+      (!filters.categorySlug || offer.category?.slug === filters.categorySlug) &&
+      (!filters.offerType || types.includes(filters.offerType)) &&
+      (!query || searchText.includes(query)) &&
+      isOfferMatchingCardFilters(offer, filters, selectedCards),
+    ).map(({ offer }) => offer)
+  }, [indexedOffers, filters, selectedCards])
 
-      if (filters.categorySlug && offer.category?.slug !== filters.categorySlug)
-        return false
-
-      if (filters.merchantSlug && offer.merchant?.slug !== filters.merchantSlug)
-        return false
-
-      if (filters.cardType) {
-        if (!isOfferMatchingCardType(offer, filters.cardType)) return false
-      }
-
-      if (filters.network) {
-        if (!isOfferMatchingNetwork(offer, filters.network)) return false
-      }
-
-      if (filters.myCardsOnly && selectedCards.length > 0) {
-        if (!isOfferMatchingSelectedCards(offer, selectedCards)) return false
-      }
-
-      if (filters.search) {
-        const q = normalizeForSearch(filters.search)
-        const bankNames = [
-          ...(offer.offer_bank_rules ?? []).map(
-            (r) => `${r.bank?.name ?? ''} ${r.bank?.short_name ?? ''}`,
-          ),
-          ...(offer.offer_cards ?? []).map(
-            (oc) =>
-              `${oc.card?.bank?.name ?? ''} ${oc.card?.bank?.short_name ?? ''} ${oc.card?.name ?? ''}`,
-          ),
-        ]
-          .filter(Boolean)
-          .join(' ')
-        const haystack = normalizeForSearch([
-          offer.title,
-          offer.merchant?.name ?? '',
-          offer.description ?? '',
-          offer.category?.name ?? '',
-          bankNames,
-        ].join(' '))
-        if (!haystack.includes(q)) return false
-      }
-
-      return true
-    })
-  }, [offers, filters, selectedCards])
-
-  const activeFilterCount = useMemo(() => {
-    let count = 0
-    if (filters.search) count++
-    if (filters.bankSlug) count++
-    if (filters.categorySlug) count++
-    if (filters.merchantSlug) count++
-    if (filters.cardType) count++
-    if (filters.network) count++
-    if (filters.myCardsOnly) count++
-    return count
-  }, [filters])
-
+  const activeFilterCount = Object.values(filters).filter(Boolean).length
   return { filters, setFilter, resetFilters, filteredOffers, activeFilterCount }
 }

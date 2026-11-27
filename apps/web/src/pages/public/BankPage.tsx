@@ -9,6 +9,7 @@ import { getBankBySlug, getBanks } from '@/lib/supabase/queries/banks'
 import { getOffersByBankSlug } from '@/lib/supabase/queries/offers'
 import type { Bank, Offer } from '@/types'
 import { canonicalUrl, SITE_URL } from '@/utils/seo'
+import { getBankTheme } from '@/utils/bankTheme'
 
 /** Short SEO copy per bank. Keep natural — no keyword stuffing. */
 const BANK_SEO_COPY: Record<string, string> = {
@@ -99,6 +100,7 @@ export default function BankPage() {
   }
 
   const bankName = bank?.name ?? 'Bank'
+  const theme = getBankTheme(bankSlug)
   const pageCanonical = canonicalUrl(`/bank/${bankSlug}`)
   const seoCopy =
     (bankSlug && BANK_SEO_COPY[bankSlug]) ??
@@ -127,27 +129,32 @@ export default function BankPage() {
           All promotions
         </Link>
 
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Building2 size={20} className="text-primary" />
+        {/* Bank hero — tinted with the bank's theme colour */}
+        <div className={`${theme.tileBg} rounded-2xl p-6 mb-5`}>
+          <div className="flex items-center gap-3.5">
+            <div className={`w-[46px] h-[46px] rounded-xl ${theme.stripe} flex items-center justify-center shrink-0`}>
+              <Building2 size={22} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className={`text-[22px] font-extrabold ${theme.tileText}`}>{bankName}</h1>
+              {!loading && (
+                <p className={`text-sm ${theme.tileText} opacity-75`}>
+                  {offers.length} active promotion{offers.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-content">{bankName}</h1>
-            {!loading && (
-              <p className="text-sm text-muted">
-                {offers.length} active promotion{offers.length !== 1 ? 's' : ''}
-              </p>
-            )}
-          </div>
+          {!loading && bank && (
+            <p className={`mt-3.5 text-sm leading-relaxed ${theme.tileText} opacity-90 max-w-2xl`}>
+              {seoCopy}
+            </p>
+          )}
         </div>
 
-        {/* SEO description paragraph */}
-        {!loading && bank && (
-          <p className="text-sm text-muted leading-relaxed mb-5 max-w-2xl">{seoCopy}</p>
-        )}
-
         {/* Cross-bank navigation — jump to another bank's offers */}
-        <BankNav banks={allBanks} activeSlug={bankSlug} />
+        <div className="mb-5">
+          <BankNav banks={allBanks} variant="pills" activeSlug={bankSlug} />
+        </div>
 
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 mb-5">

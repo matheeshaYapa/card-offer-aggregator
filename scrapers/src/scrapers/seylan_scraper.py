@@ -34,6 +34,7 @@ scraped here since the main page covers all offers across all categories.
 import re
 import time
 from datetime import date
+from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup, Tag
 
@@ -75,10 +76,12 @@ class SeylanScraper(BaseScraper):
             url = _LIST_URL if page_num == 1 else f"{_LIST_URL}?page={page_num}"
             html = first_html if page_num == 1 else self._safe_fetch(url)
             if not html:
-                logger.warning("  Seylan: skipping page %d (fetch failed)", page_num)
+                self.flag_issue(f"Seylan listing page {page_num} failed")
                 continue
 
             page_offers = self.parse(html)
+            if not page_offers:
+                self.flag_issue(f"Seylan listing page {page_num} contained no offer cards")
             new = 0
             for offer in page_offers:
                 if offer.candidate_hash not in seen_hashes:
@@ -129,6 +132,9 @@ class SeylanScraper(BaseScraper):
         # saving so only the actual offer name is stored.
         if title:
             title = _strip_template_artifacts(title)
+        original_title = title
+        if title:
+            title = re.sub(r'^slug\}\}["\']?>\s*', "", title, flags=re.IGNORECASE)
 
         if not title or len(title) < 3:
             return None
@@ -165,6 +171,9 @@ class SeylanScraper(BaseScraper):
         raw_parts = [title]
         if description:  raw_parts.append(description)
         if valid_to:     raw_parts.append(f"Valid to: {valid_to.isoformat()}")
+        source_parts = urlsplit(source_url).path.strip("/").split("/")
+        if len(source_parts) >= 4 and source_parts[:2] == ["promotions", "cards"]:
+            raw_parts.append(f"Category: {source_parts[2]}")
         raw_text = " | ".join(raw_parts)
 
         # ── Confidence ────────────────────────────────────────────────────
@@ -175,7 +184,7 @@ class SeylanScraper(BaseScraper):
         if description: score += 0.05
 
         ch = generate_candidate_hash(
-            source_url, title, discount,
+            source_url, original_title, discount,
             valid_to.isoformat() if valid_to else None,
             raw_text,
         )

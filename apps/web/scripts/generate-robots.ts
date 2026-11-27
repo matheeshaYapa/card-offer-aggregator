@@ -7,24 +7,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-// Load .env.local for local builds
-const envLocalPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../.env.local',
-)
-if (fs.existsSync(envLocalPath)) {
-  for (const line of fs.readFileSync(envLocalPath, 'utf-8').split('\n')) {
-    const match = line.match(/^([^#=\s]+)\s*=\s*(.*)$/)
-    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim()
-  }
-}
+import { loadEnv } from 'vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const toAbs = (p: string) => path.resolve(root, p)
 
-const SITE_URL = (process.env.VITE_APP_BASE_URL ?? 'https://cardpromo.lk').replace(/\/$/, '')
+const SITE_URL = (loadEnv('production', root, 'VITE_').VITE_APP_BASE_URL ?? 'https://card-promo.com').replace(/\/$/, '')
 
 const content = `User-agent: *
 Allow: /

@@ -6,25 +6,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-// Load .env.local for local builds
-const envLocalPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../.env.local',
-)
-if (fs.existsSync(envLocalPath)) {
-  for (const line of fs.readFileSync(envLocalPath, 'utf-8').split('\n')) {
-    const match = line.match(/^([^#=\s]+)\s*=\s*(.*)$/)
-    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim()
-  }
-}
+import { loadPublicRouteSlugs } from './public-routes'
+import { loadEnv } from 'vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const toAbs = (p: string) => path.resolve(root, p)
 
 // Strip trailing slash so URLs never double up (e.g. https://domain.com/ + /offers = //offers)
-const SITE_URL = (process.env.VITE_APP_BASE_URL ?? 'https://cardpromo.lk').replace(/\/$/, '')
+const SITE_URL = (loadEnv('production', root, 'VITE_').VITE_APP_BASE_URL ?? 'https://card-promo.com').replace(/\/$/, '')
 
 // Seed fallbacks (mirrors 003_seed_base_data.sql)
 let bankSlugs = ['commercial-bank', 'sampath-bank', 'hnb', 'boc', 'peoples-bank']
@@ -40,29 +30,10 @@ let offerSlugs = [
   'combank-5-cashback-cargills',
 ]
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
-
-if (supabaseUrl && supabaseAnonKey) {
-  const { createClient } = await import('@supabase/supabase-js')
-  const client = createClient(supabaseUrl, supabaseAnonKey)
-  const today = new Date().toISOString().split('T')[0]
-
-  const [{ data: banks }, { data: cats }, { data: offers }] = await Promise.all([
-    client.from('banks').select('slug').eq('is_active', true),
-    client.from('categories').select('slug').eq('is_active', true),
-    client
-      .from('offers')
-      .select('slug')
-      .eq('status', 'approved')
-      .eq('is_active', true)
-      .or(`valid_to.is.null,valid_to.gte.${today}`),
-  ])
-
-  if (banks) bankSlugs = banks.map((b: { slug: string }) => b.slug)
-  if (cats) categorySlugs = cats.map((c: { slug: string }) => c.slug)
-  if (offers) offerSlugs = offers.map((o: { slug: string }) => o.slug)
-}
+const liveRoutes = await loadPublicRouteSlugs(root)
+if (liveRoutes?.banks) bankSlugs = liveRoutes.banks
+if (liveRoutes?.categories) categorySlugs = liveRoutes.categories
+if (liveRoutes?.offers) offerSlugs = liveRoutes.offers
 
 const today = new Date().toISOString().split('T')[0]
 

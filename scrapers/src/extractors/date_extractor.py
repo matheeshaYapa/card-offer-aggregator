@@ -64,8 +64,10 @@ def _parse_date(text: str) -> date | None:
     """Try to parse a date string, returning None on failure."""
     if not text:
         return None
-    text = re.sub(r"(?:st|nd|rd|th)\b", "", text).strip()
+    text = re.sub(r"(?<=\d)(?:st|nd|rd|th)\b", "", text, flags=re.IGNORECASE).strip()
     try:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+            return date.fromisoformat(text)
         return dateutil_parser.parse(text, dayfirst=True).date()
     except Exception:
         return None
@@ -99,3 +101,41 @@ def extract_dates(text: str) -> dict[str, date | None]:
             break
 
     return result
+
+
+def extract_schedule(text: str) -> dict[str, date | None]:
+    """Parse a dedicated validity field while preserving gaps in the schedule."""
+    text = " ".join(text.split()).replace("–", "to").replace("—", "to")
+    empty = {"valid_from": None, "valid_to": None}
+    day = rf"\d{{1,2}}{_ORD}"
+    month_year = rf"{_MONTHS} 20\d{{2}}"
+    date_with_year = rf"{day} {month_year}"
+
+    single = re.fullmatch(rf"(?:valid on )?({date_with_year})", text, re.I)
+    if single:
+        parsed = _parse_date(single[1])
+        return {"valid_from": parsed, "valid_to": parsed}
+
+    consecutive = re.fullmatch(rf"(?:valid on )?({day})\s*&\s*({day}) ({month_year})", text, re.I)
+    if consecutive:
+        first, last, end_month = consecutive.groups()
+        start, end = _parse_date(f"{first} {end_month}"), _parse_date(f"{last} {end_month}")
+        if start and end and (end - start).days == 1:
+            return {"valid_from": start, "valid_to": end}
+        return empty
+
+    if re.search(r"[,;&]|\band\b", text, re.I):
+        return empty
+    shared_year = re.fullmatch(
+        rf"(?:valid (?:from )?)?({day} {_MONTHS})\s+to\s+({day} {_MONTHS}) (20\d{{2}})", text, re.I,
+    )
+    if shared_year:
+        first, last, year = shared_year.groups()
+        return extract_dates(f"{first} {year} to {last} {year}")
+    shared_month = re.fullmatch(
+        rf"(?:valid (?:from )?)?({day})\s+to\s+({day}) ({month_year})", text, re.I,
+    )
+    if shared_month:
+        first, last, month = shared_month.groups()
+        return extract_dates(f"{first} {month} to {last} {month}")
+    return extract_dates(text)

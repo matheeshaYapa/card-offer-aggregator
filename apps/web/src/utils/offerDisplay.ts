@@ -1,4 +1,24 @@
-import type { Offer } from '@/types'
+import type { Offer, OfferType } from '@/types'
+
+export const OFFER_TYPES: { id: OfferType; label: string }[] = [
+  { id: 'discount', label: 'Discounts' },
+  { id: 'cashback', label: 'Cashback' },
+  { id: 'installment', label: 'Installments' },
+  { id: 'bonus', label: 'Free items & extras' },
+]
+
+export function getOfferTypes(offer: Offer): OfferType[] {
+  const text = [offer.title, offer.discount_text, offer.description].filter(Boolean).join(' ')
+  const types: OfferType[] = []
+  if (/\bcash[ -]*back\b/i.test(text)) types.push('cashback')
+  if (/\b(?:instal{1,2}ments?|payment plans?|interest[ -]free|0\s*% interest)\b/i.test(text)) types.push('installment')
+  if (/\b(?:complimentary|bogo|b1g1|free (?:delivery|shipping|upgrades?))\b|\bbuy\s+(?:one|\d+)\s+get\b|^free\b/i.test(text)) types.push('bonus')
+  if (!types.includes('cashback') && (
+    /\b(?:off|discounts?|savings?)\b/i.test(text) ||
+    (!types.length && /[1-9]\d*(?:\.\d+)?\s*%/.test(offer.discount_text ?? ''))
+  )) types.push('discount')
+  return types
+}
 
 export interface OfferDisplay {
   /** The "where" — the merchant/partner, used as the card's bold headline. */
@@ -36,6 +56,60 @@ export function getOfferDisplay(offer: Offer): OfferDisplay {
     headline: capitalizeFirst(headline) || 'Special offer',
     detail: detail ? capitalizeFirst(detail) : null,
   }
+}
+
+export interface ParsedDiscount {
+  /** The large headline token, e.g. "20%", "0%", "B1G1", "Free", "Rs.1,000". */
+  big: string
+  /** The small trailing unit, e.g. "off", "cashback", "for 12 months". */
+  small: string
+}
+
+/**
+ * Split a discount string into a big headline token + a small unit, for the
+ * deal-first card. Best-effort over the messy scraped `discount_text` values.
+ *
+ *   "20% off"                     → { big: "20%",     small: "off" }
+ *   "Up to 35% off"               → { big: "35%",     small: "off" }
+ *   "10% cashback"                → { big: "10%",     small: "cashback" }
+ *   "0% installment for 12 months"→ { big: "0%",      small: "installment for 12 months" }
+ *   "Buy 1 Get 1 Free"            → { big: "B1G1",    small: "free" }
+ *   "Rs. 1,000 off"               → { big: "Rs.1,000",small: "off" }
+ */
+export function parseDiscount(discountText: string | null | undefined): ParsedDiscount {
+  const text = (discountText ?? '').trim()
+  if (!text) return { big: 'Offer', small: '' }
+
+  // Buy-one-get-one variants.
+  if (/\b(bogo|b1g1|buy\s*1\s*get\s*1|buy\s*one\s*get\s*one)\b/i.test(text)) {
+    return { big: 'B1G1', small: 'free' }
+  }
+
+  // Percentage (optionally "up to N%").
+  const pct = text.match(/^(up\s+to\s+)?(\d+(?:\.\d+)?)\s*%/i)
+  if (pct) {
+    const big = `${pct[1] ? 'Up to ' : ''}${pct[2]}%`
+    const small = text
+      .slice(pct[0].length)
+      .replace(/^[\s·—-]+/, '')
+      .trim()
+    return { big, small }
+  }
+
+  // Rupee amount.
+  const rs = text.match(/^(up\s+to\s+)?(?:Rs\.?|LKR)\s*([\d,]+(?:\.\d+)?)/i)
+  if (rs) {
+    const rest = text.slice(rs[0].length).replace(/^[\s·—-]+/, '').trim()
+    return { big: `${rs[1] ? 'Up to ' : ''}Rs. ${rs[2]}`, small: rest }
+  }
+
+  // "Free …" (free delivery, free upgrade, …).
+  const free = text.match(/^free\b\s*(.*)$/i)
+  if (free) return { big: 'Free', small: free[1].trim() }
+
+  // Fallback: first word is the headline, rest is the unit.
+  const [firstWord, ...rest] = text.split(/\s+/)
+  return { big: firstWord, small: rest.join(' ') }
 }
 
 /** Split "<lead> at <merchant>" on the first " at " token. */
