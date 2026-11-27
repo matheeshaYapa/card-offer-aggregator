@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   Calendar,
@@ -18,18 +18,26 @@ import { formatNetworkName, formatCardTypeName } from '@/utils/normalization'
 import { getOfferBySlug } from '@/lib/supabase/queries/offers'
 import type { Offer } from '@/types'
 import { canonicalUrl, SITE_URL } from '@/utils/seo'
+import { getBankTheme } from '@/utils/bankTheme'
+import { getOfferDisplay, parseDiscount } from '@/utils/offerDisplay'
+import { getOfferBanks } from '@/utils/offerMatching'
 
 export default function OfferDetailsPage() {
   const { offerSlug } = useParams<{ offerSlug: string }>()
-  const navigate = useNavigate()
+  const { state } = useLocation()
+  const browsePath = typeof state?.browsePath === 'string' && /^\/(?!\/)/.test(state.browsePath) ? state.browsePath : '/'
   const [offer, setOffer] = useState<Offer | null | undefined>(undefined)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!offerSlug) return
+    let current = true
+    setOffer(undefined)
+    setFetchError(null)
     getOfferBySlug(offerSlug)
-      .then(setOffer)
-      .catch((e) => setFetchError(e instanceof Error ? e.message : 'Failed to load'))
+      .then((loaded) => { if (current) setOffer(loaded) })
+      .catch((error) => { if (current) setFetchError(error instanceof Error ? error.message : 'Failed to load') })
+    return () => { current = false }
   }, [offerSlug])
 
   if (offer === undefined && !fetchError) {
@@ -58,11 +66,7 @@ export default function OfferDetailsPage() {
   }
 
   // offer is guaranteed non-null here
-  const banks = Array.from(
-    new Map(
-      (offer!.offer_bank_rules ?? []).filter((r) => r.bank).map((r) => [r.bank!.id, r.bank!]),
-    ).values(),
-  )
+  const banks = getOfferBanks(offer!)
   const networks = Array.from(new Set(
     (offer!.offer_bank_rules ?? []).map((r) => r.network).filter(Boolean) as string[]
   ))
@@ -80,6 +84,9 @@ export default function OfferDetailsPage() {
   const expiryLabel = getExpiryLabel(offer!)
 
   const primaryBankName = banks[0]?.short_name ?? banks[0]?.name ?? 'Sri Lanka'
+  const headerTheme = getBankTheme(banks[0]?.slug)
+  const merchantLabel = offer!.merchant?.name ?? getOfferDisplay(offer!).headline
+  const { big: discountBig, small: discountSmall } = parseDiscount(offer!.discount_text)
   const pageCanonical = canonicalUrl(`/offer/${offer!.slug}`)
   const metaDescription =
     offer!.description ??
@@ -103,30 +110,32 @@ export default function OfferDetailsPage() {
       />
 
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <button
-          onClick={() => navigate(-1)}
+        <Link
+          to={browsePath}
           className="flex items-center gap-1.5 text-sm text-muted hover:text-content transition-colors mb-5"
         >
           <ArrowLeft size={15} />
-          Back
-        </button>
+          Back to offers
+        </Link>
 
-        <div className="bg-primary rounded-2xl p-6 mb-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-white/80 text-xs font-medium mb-1">
-                {offer!.merchant?.name ?? 'Various Merchants'}
+        <div className={`${headerTheme.tileBg} ${headerTheme.tileText} rounded-[18px] p-6 sm:p-8 mb-5`}>
+          <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold mb-2">
+                {merchantLabel}
               </p>
-              <h1 className="text-white font-bold text-xl leading-snug">{offer!.title}</h1>
+              <h1 className="text-content font-extrabold text-2xl sm:text-3xl tracking-tight leading-snug [text-wrap:pretty]">
+                {offer!.title}
+              </h1>
             </div>
             {offer!.discount_text && (
-              <div className="shrink-0 bg-white/15 rounded-xl px-3 py-2 text-center">
-                <span className="text-white font-black text-2xl leading-none block">
-                  {offer!.discount_text.split(' ')[0]}
+              <div className="sm:max-w-[38%] bg-white/65 rounded-[14px] px-4 py-3">
+                <span className="font-black text-[1.45rem] leading-tight block">
+                  {discountBig}
                 </span>
-                <span className="text-white/70 text-xs">
-                  {offer!.discount_text.split(' ').slice(1).join(' ')}
-                </span>
+                {discountSmall && (
+                  <span className="text-sm">{discountSmall}</span>
+                )}
               </div>
             )}
           </div>
@@ -137,6 +146,10 @@ export default function OfferDetailsPage() {
             <div className="p-4">
               <p className="text-sm text-content leading-relaxed">{offer!.description}</p>
             </div>
+          )}
+
+          {offer.source_type === 'scraped' && !cardTypes.length && !networks.length && !explicitCards.length && (
+            <p className="p-4 text-sm text-muted">Check the bank’s offer page for eligible cards.</p>
           )}
 
           <div className="p-4 flex flex-wrap gap-4">
@@ -168,16 +181,24 @@ export default function OfferDetailsPage() {
                 <span className="text-xs font-semibold text-content">Eligible Banks</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {banks.map((bank) => (
-                  <Link key={bank.id} to={`/bank/${bank.slug}`} className="hover:opacity-80 transition-opacity">
-                    <Badge variant="primary" size="md">{bank.name}</Badge>
-                  </Link>
-                ))}
+                {banks.map((bank) => {
+                  const t = getBankTheme(bank.slug)
+                  return (
+                    <Link
+                      key={bank.id}
+                      to={`/bank/${bank.slug}`}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${t.badge} hover:opacity-80 transition-opacity`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${t.stripe}`} />
+                      {bank.name}
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {(cardTypes.length > 0 || networks.length > 0) && (
+          {(cardTypes.length > 0 || networks.length > 0 || explicitCards.length > 0) && (
             <div className="p-4">
               <div className="flex items-center gap-1.5 mb-2">
                 <CreditCard size={13} className="text-muted" />
@@ -217,15 +238,15 @@ export default function OfferDetailsPage() {
             </div>
           )}
 
-          {offer!.source_url && (
+          {offer!.source_url && /^https?:\/\//i.test(offer!.source_url) && (
             <div className="p-4">
               <a
                 href={offer!.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline underline-offset-2"
+                className="browse-action"
               >
-                <ExternalLink size={12} />
+                <ExternalLink size={15} className="mr-2" aria-hidden="true" />
                 View on bank website
               </a>
             </div>

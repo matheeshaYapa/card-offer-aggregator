@@ -112,12 +112,13 @@ class HNBScraper(BaseScraper):
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as exc:
-                logger.warning("  HNB: failed to fetch page %d: %s", page, exc)
+                self.flag_issue(f"HNB list page {page} failed: {exc}")
                 break
 
             page_items = data.get("data") or []
             if not page_items:
-                logger.debug("  HNB: page %d returned no items — stopping", page)
+                if int(data.get("totalPages") or 0) >= page:
+                    self.flag_issue(f"HNB list page {page} was empty despite pagination metadata")
                 break
 
             items.extend(page_items)

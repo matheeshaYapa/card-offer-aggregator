@@ -36,6 +36,7 @@ export interface Merchant {
 
 export type CardType = 'credit' | 'debit'
 export type CardNetwork = 'visa' | 'mastercard' | 'amex' | 'other'
+export type OfferType = 'discount' | 'cashback' | 'installment' | 'bonus'
 
 export interface Card {
   id: string
@@ -161,9 +162,8 @@ export interface FilterState {
   search: string
   bankSlug: string | null
   categorySlug: string | null
-  merchantSlug: string | null
+  offerType: OfferType | null
   cardType: CardType | null
   network: CardNetwork | null
   myCardsOnly: boolean
-  showExpired: boolean
 }

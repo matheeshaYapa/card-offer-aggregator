@@ -29,7 +29,7 @@ import time
 
 from bs4 import BeautifulSoup, Tag
 
-from src.extractors.date_extractor import extract_dates
+from src.extractors.date_extractor import extract_dates, extract_schedule
 from src.extractors.discount_extractor import extract_discount
 from src.models.scraped_offer import ScrapedOffer
 from src.scrapers.base_scraper import BaseScraper
@@ -96,7 +96,7 @@ class NTBScraper(BaseScraper):
                         new += 1
                 logger.debug("  NTB: %s → %d candidate(s)", offer_url.rsplit("/", 1)[-1][:40], new)
             except Exception as exc:
-                logger.warning("  NTB: failed to scrape %s: %s", offer_url, exc)
+                self.flag_issue(f"NTB detail failed for {offer_url}: {exc}")
             time.sleep(0.5)
 
         logger.info("  NTB: %d unique candidate(s) total", len(candidates))
@@ -160,6 +160,9 @@ class NTBScraper(BaseScraper):
         One candidate per table row.
         """
         soup = BeautifulSoup(html, "lxml")
+        detail = self._parse_merchant_detail(soup, source_url)
+        if detail:
+            return [detail]
 
         # ── Page-level validity date ───────────────────────────────────────
         page_text = soup.get_text(separator=" ")
@@ -218,6 +221,8 @@ class NTBScraper(BaseScraper):
                 ))
         else:
             # Fallback: no table found, use the listing title as a single candidate
+            if listing_title.casefold() in {"learn more", "read more"}:
+                listing_title = category or source_url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
             discount = extract_discount(listing_title) or None
             raw_text = listing_title
             if category:  raw_text += f" | Category: {category}"
@@ -242,6 +247,49 @@ class NTBScraper(BaseScraper):
             ))
 
         return candidates
+
+    def _parse_merchant_detail(self, soup: BeautifulSoup, source_url: str) -> ScrapedOffer | None:
+        header = soup.select_one(".info-header")
+        if not header or not header.parent:
+            return None
+        merchant_node = header.select_one(".location > span")
+        benefit_node = header.select_one("h1")
+        if not merchant_node or not benefit_node:
+            return None
+
+        merchant = clean_text(merchant_node.get_text(" "))
+        benefit = clean_text(benefit_node.get_text(" "))
+        if len(merchant) < 3 or not benefit:
+            return None
+
+        category_node = header.select_one(".location .tag")
+        category = clean_text(category_node.get_text(" ")) if category_node else None
+        body = [clean_text(tag.get_text(" ")) for tag in header.parent.select("li, p")]
+        schedules = set()
+        for line in body:
+            if re.match(r"^(?:offer )?valid (?:on|from|until|till|through)\b", line, re.I):
+                dates = extract_schedule(re.sub(r"^offer ", "", line, flags=re.I).rstrip("."))
+                if dates["valid_to"]:
+                    schedules.add((dates["valid_from"], dates["valid_to"]))
+        valid_from, valid_to = next(iter(schedules)) if len(schedules) == 1 else (None, None)
+        discount = extract_discount(benefit)
+        description = " ".join(dict.fromkeys([benefit, *filter(None, body)]))
+        raw_text = f"{merchant} | Category: {category} | {description}" if category else f"{merchant} | {description}"
+        score = 0.55 + 0.15 * bool(discount) + 0.2 * bool(valid_to)
+        return ScrapedOffer(
+            title=merchant,
+            description=truncate(description, 500),
+            raw_text=truncate(raw_text, 2000),
+            source_url=source_url,
+            detected_merchant=merchant,
+            detected_discount=discount,
+            detected_valid_from=valid_from,
+            detected_valid_to=valid_to,
+            confidence_score=round(score, 2),
+            candidate_hash=generate_candidate_hash(
+                source_url, merchant, discount, valid_to.isoformat() if valid_to else None,
+            ),
+        )
 
     def _find_offer_rows(self, soup: BeautifulSoup) -> list[tuple[str, str, str]]:
         """

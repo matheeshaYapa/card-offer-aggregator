@@ -1,36 +1,29 @@
-import { Link } from 'react-router-dom'
-import { Calendar, ArrowRight } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { CalendarDays, Tag } from 'lucide-react'
 import type { Offer } from '@/types'
-import Badge from '@/components/common/Badge'
-import { formatDate, getDaysRemaining } from '@/utils/dateUtils'
+import { getDaysRemaining, getExpiryLabel } from '@/utils/dateUtils'
 import { getBankTheme } from '@/utils/bankTheme'
-import { getOfferDisplay } from '@/utils/offerDisplay'
+import { getOfferDisplay, getOfferTypes, OFFER_TYPES, parseDiscount } from '@/utils/offerDisplay'
+import { getOfferBanks } from '@/utils/offerMatching'
+import { formatNetworkName } from '@/utils/normalization'
 
 interface OfferCardProps {
   offer: Offer
 }
 
 export default function OfferCard({ offer }: OfferCardProps) {
+  const { pathname, search } = useLocation()
   const category = offer.category
-  // Deduplicate banks from offer_bank_rules
-  const uniqueBanks = Array.from(
-    new Map(
-      (offer.offer_bank_rules ?? [])
-        .filter((r) => r.bank)
-        .map((r) => [r.bank!.id, r.bank!]),
-    ).values(),
-  )
-  // Deduplicate networks from offer_bank_rules
-  const networks = Array.from(
-    new Set(
-      (offer.offer_bank_rules ?? [])
-        .map((r) => r.network)
-        .filter(Boolean) as string[],
-    ),
-  )
+  const uniqueBanks = getOfferBanks(offer)
+  const networks = [...new Set([
+    ...(offer.offer_bank_rules ?? []).map(({ network }) => network),
+    ...(offer.offer_cards ?? []).map(({ card }) => card?.network),
+  ])].filter((network) => network != null)
 
-  const primaryTheme = getBankTheme(uniqueBanks[0]?.slug)
+  const theme = getBankTheme(uniqueBanks[0]?.slug)
   const { headline, detail } = getOfferDisplay(offer)
+  const { big, small } = parseDiscount(offer.discount_text)
+  const typeLabel = OFFER_TYPES.find(({ id }) => id === getOfferTypes(offer)[0])?.label
 
   const daysLeft = getDaysRemaining(offer.valid_to)
   const urgentExpiry = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
@@ -38,80 +31,68 @@ export default function OfferCard({ offer }: OfferCardProps) {
   return (
     <Link
       to={`/offer/${offer.slug}`}
-      className="group relative flex flex-col min-h-[210px] bg-white rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+      state={{ browsePath: pathname + search }}
+      className="group flex flex-col min-h-[240px] bg-white rounded-2xl border border-border overflow-hidden transition-shadow hover:border-primary/45 hover:shadow-[0_8px_22px_rgba(18,63,51,0.08)]"
     >
-      {/* Bank-coloured accent stripe */}
-      <span
-        className={`absolute left-0 top-0 bottom-0 w-1 ${primaryTheme.stripe}`}
-        aria-hidden="true"
-      />
-
-      <div className="flex flex-col flex-1 p-4 pl-5">
-        {/* Discount + category */}
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <span
-            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-sm font-bold tracking-tight text-white ${primaryTheme.stripe}`}
-          >
-            {offer.discount_text ?? 'Special offer'}
-          </span>
-          {category && (
-            <span className="shrink-0 mt-0.5 text-[11px] font-medium text-muted bg-slate-100 rounded-full px-2 py-0.5">
-              {category.name}
-            </span>
-          )}
+      <div className={`flex items-start gap-3 min-w-0 px-4 py-4 ${theme.tileBg} ${theme.tileText}`}>
+        <div className="grid place-items-center shrink-0 bg-white/70 size-9 rounded-lg">
+          <Tag size={17} aria-hidden="true" />
         </div>
-
-        {/* Merchant hero */}
-        <h3 className="font-bold text-content text-base leading-snug group-hover:text-primary transition-colors line-clamp-2">
+        <div className="min-w-0 self-center">
+          <p className="text-[1.35rem] font-extrabold tracking-tight leading-tight break-words">{big}</p>
+          {small && <p className="text-[.82rem] font-semibold leading-snug break-words">{small}</p>}
+        </div>
+      </div>
+      <div className="flex flex-col flex-1 p-4">
+        {(category || typeLabel) && (
+          <p className="mb-1.5 text-[.82rem] font-semibold text-muted">{category?.name ?? typeLabel}</p>
+        )}
+        <h3 className="font-bold text-content text-base leading-snug [text-wrap:pretty] group-hover:text-primary transition-colors line-clamp-2">
           {headline}
         </h3>
         {detail && (
-          <p className="text-xs text-muted mt-1 line-clamp-1">{detail}</p>
+          <p className="text-sm text-muted mt-1 line-clamp-2">{detail}</p>
         )}
 
-        {/* Bank & network badges */}
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        {/* Bank & network badges — no dots (the stripe/tint already encodes the bank) */}
+        <div className="flex flex-wrap gap-1.5 mt-3 mb-3.5">
           {uniqueBanks.slice(0, 2).map((bank) => {
-            const theme = getBankTheme(bank.slug)
+            const t = getBankTheme(bank.slug)
             return (
               <span
                 key={bank.id}
-                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${theme.badge}`}
+                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.badge}`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${theme.stripe}`} />
                 {bank.short_name ?? bank.name}
               </span>
             )
           })}
           {uniqueBanks.length > 2 && (
-            <Badge variant="muted" size="sm">+{uniqueBanks.length - 2} more</Badge>
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-muted">
+              +{uniqueBanks.length - 2} more
+            </span>
           )}
           {networks.map((n) => (
-            <Badge
+            <span
               key={n}
-              variant={n as 'visa' | 'mastercard' | 'amex' | 'other'}
-              size="sm"
+              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-600"
             >
-              {n.charAt(0).toUpperCase() + n.slice(1)}
-            </Badge>
+              {formatNetworkName(n)}
+            </span>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between mt-auto pt-3 border-t border-border">
-          <div className="flex items-center gap-1.5 text-xs text-muted">
-            <Calendar size={11} />
-            {urgentExpiry ? (
-              <span className="text-amber-600 font-medium">
-                {daysLeft === 0 ? 'Expires today' : `${daysLeft}d left`}
-              </span>
-            ) : offer.valid_to ? (
-              <span>Until {formatDate(offer.valid_to)}</span>
-            ) : (
-              <span>No expiry</span>
-            )}
-          </div>
-          <ArrowRight size={14} className="text-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-auto pt-3 border-t border-border">
+          <span
+            className={`flex items-center gap-1.5 text-xs ${
+              urgentExpiry ? 'text-amber-700 font-semibold' : 'text-muted'
+            }`}
+          >
+            <CalendarDays size={14} aria-hidden="true" />
+            {getExpiryLabel(offer)}
+          </span>
+          <span className="text-xs font-bold text-primary group-hover:underline underline-offset-4">View offer</span>
         </div>
       </div>
     </Link>

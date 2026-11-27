@@ -11,14 +11,11 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 from src.models.scraped_offer import ScrapedOffer
+from src.scrape_quality import auto_publish_blockers
 from src.utils.logger import get_logger
-from src.utils.slugify import slugify, unique_suffix
+from src.utils.slugify import slugify
 
 logger = get_logger(__name__)
-
-# Candidates at or above this confidence are auto-published as live offers.
-AUTO_PUBLISH_THRESHOLD = 0.8
-
 
 def get_supabase_client() -> Client:
     load_dotenv()
@@ -104,8 +101,8 @@ class SupabaseDB:
 
         Returns (inserted, auto_published). `inserted` is False if skipped
         (duplicate hash) — the UNIQUE constraint on candidate_hash prevents
-        double-inserts. `auto_published` is True if the candidate scored
-        >= AUTO_PUBLISH_THRESHOLD and was immediately published as a live offer.
+        double-inserts. Publication requires evidence checks and an atomic
+        database transaction that also writes the eligibility rule.
         """
         payload = {
             "scrape_run_id": run_id,
@@ -131,73 +128,42 @@ class SupabaseDB:
             "status": "pending",
         }
 
-        try:
-            result = self.client.table("scraped_offer_candidates").insert(payload).execute()
-        except Exception as exc:
-            err_str = str(exc).lower()
-            if "duplicate key" in err_str or "unique" in err_str or "23505" in err_str:
-                logger.debug("Duplicate candidate skipped (hash=%s)", offer.candidate_hash[:12])
-                return False, False
-            raise
-
-        candidate_id = result.data[0]["id"]
-
-        auto_published = False
-        if offer.confidence_score >= AUTO_PUBLISH_THRESHOLD and offer.title:
-            try:
-                self._auto_publish(candidate_id, offer, source or {})
-                auto_published = True
-            except Exception as exc:
-                logger.error(
-                    "Auto-publish failed for candidate %s: %s", candidate_id, exc, exc_info=True
-                )
-
-        return True, auto_published
-
-    def _auto_publish(self, candidate_id: str, offer: ScrapedOffer, source: dict) -> None:
-        """Create a live, approved offer from a high-confidence candidate."""
-        slug = f"{slugify(offer.title)[:60]}-{unique_suffix()}"
-        offer_payload = {
-            "country_code": "LK",
-            "title": offer.title,
-            "slug": slug,
-            "description": offer.description,
-            "discount_text": offer.detected_discount,
-            "merchant_id": None,
-            "category_id": None,
-            "valid_from": (
-                offer.detected_valid_from.isoformat() if offer.detected_valid_from else None
-            ),
-            "valid_to": (
-                offer.detected_valid_to.isoformat() if offer.detected_valid_to else None
-            ),
-            "source_url": offer.source_url,
-            "source_type": "scraped",
-            "status": "approved",
-            "is_active": True,
-            "published_at": _now(),
-        }
-        result = self.client.table("offers").insert(offer_payload).execute()
-        offer_id = result.data[0]["id"]
-
-        bank_id = source.get("bank_id")
-        if bank_id:
-            self.client.table("offer_bank_rules").insert({
-                "offer_id": offer_id,
-                "bank_id": bank_id,
-                "card_type": None,
-                "network": None,
-            }).execute()
-
-        self.client.table("scraped_offer_candidates").update({
-            "status": "approved",
-            "offer_id": offer_id,
-        }).eq("id", candidate_id).execute()
-
-        logger.info(
-            "  ✓ Auto-published '%s' as live offer (slug=%s, confidence=%.2f)",
-            offer.title, slug, offer.confidence_score,
+        result = (
+            self.client.table("scraped_offer_candidates")
+            .upsert(payload, on_conflict="candidate_hash", ignore_duplicates=True)
+            .execute()
         )
+        inserted = bool(result.data)
+        blockers = auto_publish_blockers(offer, source or {})
+        if blockers or not source_id:
+            logger.debug("Review %s: %s", offer.candidate_hash[:12], ", ".join(blockers))
+            return inserted, False
+
+        if inserted:
+            candidate_id = result.data[0]["id"]
+        else:
+            pending = (
+                self.client.table("scraped_offer_candidates")
+                .select("id")
+                .eq("candidate_hash", offer.candidate_hash)
+                .eq("scrape_source_id", source_id)
+                .eq("status", "pending")
+                .is_("offer_id", "null")
+                .maybe_single()
+                .execute()
+            )
+            if not pending or not pending.data:
+                return False, False
+            candidate_id = pending.data["id"]
+
+        slug = f"{slugify(offer.title or 'promotion')[:60].rstrip('-') or 'promotion'}-{candidate_id.replace('-', '')}"
+        published = self.client.rpc("publish_scraped_candidate", {
+            "candidate_id": candidate_id,
+            "offer_slug": slug,
+        }).execute().data
+        if published:
+            logger.info("  Published %s (confidence %.2f)", slug, offer.confidence_score)
+        return inserted, bool(published)
 
 
 def _now() -> str:

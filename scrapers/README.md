@@ -2,7 +2,9 @@
 
 Python scraping pipeline that extracts credit/debit card promotions from Sri Lankan bank websites and saves them as reviewable candidates in Supabase.
 
-**Important:** Scraped candidates are never auto-published. An admin must review and approve each one via the admin panel before it appears publicly.
+The scraper auto-publishes candidates with a score of at least 0.80, a bank-owned HTTPS source, a usable title and benefit, and a valid end date. Candidates with incomplete evidence stay in the admin review queue. Publication saves the offer and its bank rules together.
+
+Run `python main.py --audit` for a read-only source check, or add `--bank hnb` to check one bank. Audits use `config/sources.yaml` and require no database credentials. See the [coverage audit and release steps](../docs/source-coverage.md).
 
 ---
 
@@ -99,10 +101,10 @@ python main.py
 
 The scraper will:
 1. Connect to Supabase using the service role key
-2. Load active scrape sources from `scrape_sources` table (falls back to `config/sources.yaml` if DB unavailable)
+2. Load active scrape sources from the `scrape_sources` table
 3. Run each bank's scraper
-4. Save new candidates to `scraped_offer_candidates`
-5. Log a summary
+4. Save new candidates and publish those that pass the checks
+5. Record extracted totals and mark empty or incomplete sources as failed or partial
 
 Expected console output:
 ```
@@ -317,5 +319,5 @@ scrapers/
 - Do **not** bypass access controls or scrape private/authenticated content
 - Keep frequency low — daily cron is sufficient; do not run more than once per day
 - Always preserve and display `source_url` so users can verify with the bank
-- Do **not** auto-publish scraped content — human review is mandatory
+- Keep incomplete or ambiguous candidates in the admin review queue
 - Check each bank's `robots.txt` and terms of service before adding a new source

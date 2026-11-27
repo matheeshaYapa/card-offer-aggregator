@@ -76,7 +76,7 @@ class BOCScraper(BaseScraper):
         try:
             listing_html = self.fetch_html(_LIST_URL)
         except Exception as exc:
-            logger.error("  BOC: failed to fetch listing page: %s", exc)
+            self.flag_issue(f"BOC listing failed: {exc}")
             return []
 
         offer_urls = self._collect_offer_urls(listing_html)
@@ -102,7 +102,7 @@ class BOCScraper(BaseScraper):
                              url.rsplit("/", 2)[-2],
                              "OK" if offer else "skip")
             except Exception as exc:
-                logger.warning("  BOC: failed to scrape %s: %s", url, exc)
+                self.flag_issue(f"BOC detail failed for {url}: {exc}")
 
             if i < len(offer_urls):
                 time.sleep(0.3)

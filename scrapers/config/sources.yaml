@@ -1,9 +1,6 @@
 # CardPromo LK — Fallback scrape source configuration
 #
-# This file is used when no active sources are found in the Supabase
-# `scrape_sources` table (e.g. during local dev without DB connectivity).
-#
-# At runtime the scraper prefers DB-sourced configuration over this file.
+# Read-only audit configuration. Scheduled runs read active Supabase sources.
 
 sources:
   - key: hnb-card-offers
@@ -75,6 +72,7 @@ sources:
     source_url: https://www.sc.com/lk/promotions/the-good-life-privileges/
     source_type: html
     scraper: standard-chartered
+    enabled: false # Retail card portfolio transferred to DFCC.
 
   - key: union-bank-offers
     bank_slug: union-bank
@@ -82,3 +80,10 @@ sources:
     source_url: https://www.unionb.com/credit-cards-offers/
     source_type: html
     scraper: union-bank
+
+  - key: dfcc-card-offers
+    bank_slug: dfcc-bank
+    name: DFCC Online and Hotel Card Offers
+    source_url: https://www.dfcc.lk/en/dfcc-card-offers/online-promotion
+    source_type: html
+    scraper: dfcc-bank

@@ -80,7 +80,7 @@ class UnionBankScraper(BaseScraper):
                     "OK" if offer else "skip",
                 )
             except Exception as exc:
-                logger.warning("  UnionBank: failed to scrape %s: %s", url, exc)
+                self.flag_issue(f"Union Bank detail failed for {url}: {exc}")
             time.sleep(0.3)
 
         logger.info("  UnionBank: %d candidate(s) total", len(candidates))
@@ -115,7 +115,7 @@ class UnionBankScraper(BaseScraper):
             try:
                 html = self.fetch_html(page_url)
             except Exception as exc:
-                logger.warning("  UnionBank: failed to fetch listing page %d: %s", page_num, exc)
+                self.flag_issue(f"Union Bank listing page {page_num} failed: {exc}")
                 break
 
             soup = BeautifulSoup(html, "lxml")

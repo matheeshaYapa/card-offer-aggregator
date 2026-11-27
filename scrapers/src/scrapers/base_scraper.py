@@ -37,6 +37,19 @@ class BaseScraper(ABC):
         self.source = source
         self.source_url: str = source.get("source_url", "")
         self.bank_slug: str = source.get("bank_slug", "")
+        self.issues: list[str] = []
+
+    def flag_issue(self, message: str) -> None:
+        self.issues.append(message)
+        logger.warning("  %s", message)
+
+    def run_checked(self) -> list[ScrapedOffer]:
+        self.issues.clear()
+        offers = self.run()
+        if not offers:
+            detail = "; ".join(self.issues)
+            raise RuntimeError(f"No offer candidates extracted{': ' + detail if detail else ''}")
+        return offers
 
     # ── Network ──────────────────────────────────────────────────────────
 
@@ -46,6 +59,8 @@ class BaseScraper(ABC):
         logger.info("  Fetching %s", target)
         resp = requests.get(target, headers=_DEFAULT_HEADERS, timeout=30)
         resp.raise_for_status()
+        if 'src="/_Incapsula_Resource?' in resp.text:
+            raise RuntimeError(f"Bank returned an access denial for {target}")
         return resp.text
 
     # ── Parsing ──────────────────────────────────────────────────────────
@@ -149,6 +164,7 @@ class BaseScraper(ABC):
         Last-resort parser: scans the whole page for blocks that look
         like promotions (have a heading + enough text).
         """
+        self.flag_issue("Bank-specific parsing unavailable; generic results require review")
         soup = BeautifulSoup(html, "lxml")
 
         # Remove navigation, footer, script, style noise
@@ -169,7 +185,9 @@ class BaseScraper(ABC):
             offer = self._extract_from_block(block)
             if offer and offer.candidate_hash not in seen_hashes:
                 seen_hashes.add(offer.candidate_hash)
-                candidates.append(offer)
+                candidates.append(offer.model_copy(update={
+                    "confidence_score": min(offer.confidence_score, 0.79),
+                }))
 
         logger.info("  Generic parser found %d candidates", len(candidates))
         return candidates

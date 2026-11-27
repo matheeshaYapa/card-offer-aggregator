@@ -1,79 +1,54 @@
-import type { Offer, SelectedCard } from '@/types'
+import type { Bank, FilterState, Offer, SelectedCard } from '@/types'
 
-/**
- * Returns true if the offer is eligible for at least one of the user's
- * selected cards, using both explicit card links (offer_cards) and
- * broad bank/type/network rules (offer_bank_rules).
- *
- * If no cards are selected, all offers pass.
- *
- * Future backend: push this filtering to a Supabase RPC function for
- * large datasets.
- */
-export function isOfferMatchingSelectedCards(
+export function getOfferBanks(offer: Offer): Bank[] {
+  const banks = new Map<string, Bank>()
+  for (const { bank } of offer.offer_bank_rules ?? []) {
+    if (bank) banks.set(bank.id, bank)
+  }
+  for (const { card } of offer.offer_cards ?? []) {
+    if (card?.bank) banks.set(card.bank.id, card.bank)
+  }
+  return [...banks.values()]
+}
+
+type CardFilters = Pick<FilterState, 'bankSlug' | 'cardType' | 'network' | 'myCardsOnly'>
+
+export function isOfferMatchingCardFilters(
   offer: Offer,
+  filters: CardFilters,
   selectedCards: SelectedCard[],
 ): boolean {
-  if (!selectedCards.length) return true
+  const { bankSlug, cardType, network, myCardsOnly } = filters
+  if (!bankSlug && !cardType && !network && !myCardsOnly) return true
 
-  return selectedCards.some((card) => {
-    // 1. Check explicit per-card eligibility
-    const explicitMatch =
-      offer.offer_cards?.some((oc) => oc.card_id === card.id) ?? false
+  const cards = myCardsOnly ? selectedCards.filter((card) =>
+    (!cardType || card.card_type === cardType) && (!network || card.network === network),
+  ) : []
 
-    if (explicitMatch) return true
+  const explicitMatch = offer.offer_cards?.some(({ card_id, card }) =>
+    (!bankSlug || card?.bank?.slug === bankSlug) &&
+    (!cardType || card?.card_type === cardType) &&
+    (!network || card?.network === network) &&
+    (!myCardsOnly || cards.some(({ id }) => id === card_id)),
+  )
 
-    // 2. Check broad bank / type / network rules
-    const ruleMatch =
-      offer.offer_bank_rules?.some((rule) => {
-        const bankOk = rule.bank_id === card.bank_id
-        const typeOk = !rule.card_type || rule.card_type === card.card_type
-        const networkOk = !rule.network || rule.network === card.network
-        return bankOk && typeOk && networkOk
-      }) ?? false
-
-    return ruleMatch
+  // Bank-only rules identify the issuer. For scraped offers, missing eligibility
+  // fields provide no evidence that a selected card, type or network qualifies.
+  const broadRuleMatch = offer.offer_bank_rules?.some((rule) => {
+    if (bankSlug && rule.bank?.slug !== bankSlug) return false
+    const scraped = offer.source_type === 'scraped'
+    if (cardType && (rule.card_type ? rule.card_type !== cardType : scraped)) return false
+    if (network && (rule.network ? rule.network !== network : scraped)) return false
+    if (!myCardsOnly) return true
+    return cards.some((card) =>
+      rule.bank_id === card.bank_id &&
+      (rule.card_type ? rule.card_type === card.card_type : !scraped || !!rule.network) &&
+      (!rule.network || rule.network === card.network),
+    )
   })
+  return !!(explicitMatch || broadRuleMatch)
 }
 
 export function isOfferMatchingBankSlug(offer: Offer, bankSlug: string): boolean {
-  const ruleMatch =
-    offer.offer_bank_rules?.some((rule) => rule.bank?.slug === bankSlug) ?? false
-
-  if (ruleMatch) return true
-
-  return (
-    offer.offer_cards?.some((offerCard) => offerCard.card?.bank?.slug === bankSlug) ??
-    false
-  )
-}
-
-export function isOfferMatchingCardType(
-  offer: Offer,
-  cardType: SelectedCard['card_type'],
-): boolean {
-  const ruleMatch =
-    offer.offer_bank_rules?.some(
-      (rule) => !rule.card_type || rule.card_type === cardType,
-    ) ?? false
-
-  const explicitMatch =
-    offer.offer_cards?.some((offerCard) => offerCard.card?.card_type === cardType) ??
-    false
-
-  return ruleMatch || explicitMatch
-}
-
-export function isOfferMatchingNetwork(
-  offer: Offer,
-  network: SelectedCard['network'],
-): boolean {
-  const ruleMatch =
-    offer.offer_bank_rules?.some((rule) => !rule.network || rule.network === network) ??
-    false
-
-  const explicitMatch =
-    offer.offer_cards?.some((offerCard) => offerCard.card?.network === network) ?? false
-
-  return ruleMatch || explicitMatch
+  return getOfferBanks(offer).some((bank) => bank.slug === bankSlug)
 }

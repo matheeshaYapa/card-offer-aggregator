@@ -132,12 +132,14 @@ class SampathScraper(BaseScraper):
             # bootstrap before making page.evaluate() API calls.
             logger.info("  Sampath: loading main page for Cloudflare clearance …")
             try:
-                page.goto(_PAGE_URL, wait_until="domcontentloaded", timeout=30_000)
+                response = page.goto(_PAGE_URL, wait_until="domcontentloaded", timeout=30_000)
+                if response is None or not response.ok:
+                    raise RuntimeError(f"Promotion page returned HTTP {response.status if response else 'unknown'}")
                 # Give Angular time to initialise and register the CF cookies
                 time.sleep(4)
                 logger.info("  Sampath: main page loaded OK — CF challenge passed")
             except Exception as exc:
-                logger.error("  Sampath: failed to load main page: %s", exc)
+                self.flag_issue(f"Sampath promotion page failed: {exc}")
                 browser.close()
                 return []
 
@@ -151,7 +153,7 @@ class SampathScraper(BaseScraper):
                         category, len(cat_offers),
                     )
                 except Exception as exc:
-                    logger.warning("  Sampath: category=%s failed: %s", category, exc)
+                    self.flag_issue(f"Sampath category {category} failed: {exc}")
 
                 time.sleep(0.5)   # polite rate limit
 
@@ -183,10 +185,13 @@ class SampathScraper(BaseScraper):
             )
             raw = self._api_call(page, api_url, referer=f"{_PAGE_URL}")
             if raw is None:
+                self.flag_issue(f"Sampath category {category} page {page_num} returned no JSON")
                 break
 
             items = _extract_items(raw)
             if not items:
+                if (_extract_total(raw) or 0) > (page_num - 1) * _PAGE_SIZE:
+                    self.flag_issue(f"Sampath category {category} page {page_num} was empty despite a reported total")
                 break
 
             for item in items:

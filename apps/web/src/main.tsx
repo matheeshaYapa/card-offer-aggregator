@@ -20,7 +20,8 @@ const app = (
 // Only hydrate when the root already contains SSR-rendered elements.
 // In dev, index.html still includes the `<!--app-html-->` placeholder comment,
 // which should not be treated as prerendered markup.
-if (rootElement.firstElementChild) {
+// Static output is rendered for the canonical path without query parameters.
+if (rootElement.firstElementChild && !window.location.search) {
   hydrateRoot(rootElement, app)
 } else {
   createRoot(rootElement).render(app)

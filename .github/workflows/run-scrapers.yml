@@ -77,6 +77,8 @@ jobs:
 
       # ── 5. Run scraper ────────────────────────────────────────────────────
       - name: Run scrapers
+        id: scrape
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -101,7 +103,7 @@ jobs:
           echo "=== Cleanup finished ($(date -u '+%Y-%m-%dT%H:%M:%SZ')) ==="
 
       # ── 5c. Trigger site rebuild (Cloudflare Pages deploy hook) ───────────
-      # Rebuilds the public site after a successful scrape so that:
+      # Rebuilds the public site even when some sources fail so that:
       #   • newly auto-published offers get their own prerendered page with the
       #     correct self-referential canonical + meta (fixes the GSC
       #     "Alternative page with proper canonical" issue, where non-prerendered
@@ -128,6 +130,12 @@ jobs:
             exit 1
           fi
           echo "Rebuild queued successfully."
+
+      - name: Report unhealthy scraper sources
+        if: always() && steps.scrape.outcome == 'failure'
+        run: |
+          echo "At least one source failed or had incomplete coverage. See the scraper logs and Admin → Scrape Runs."
+          exit 1
 
       # ── 6. Summary ────────────────────────────────────────────────────────
       - name: Write job summary
